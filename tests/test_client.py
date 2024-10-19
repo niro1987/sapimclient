@@ -377,7 +377,7 @@ async def test_tenant_create_error_payload(
     )
     mocked.post(
         url=f'{tenant.host}/api/v2/eggs',
-        status=400,
+        status=200,
         headers={'Content-Type': 'application/json'},
         payload={'bacon': 'out of bacon'},
     )
