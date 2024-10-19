@@ -303,7 +303,7 @@ class Tenant:
 
             error_message: str = error_data[seq]
             LOGGER.exception(error_message)
-            raise exceptions.SAPResponseError(error_message) from err
+            raise exceptions.SAPNotFoundError(error_message) from err
 
         if attr_resource not in response:
             msg = f'Unexpected payload. {response}'
