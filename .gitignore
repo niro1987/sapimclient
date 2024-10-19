@@ -8,3 +8,4 @@ build/
 docs/html/
 node_modules/
 .coverage
+*.http
