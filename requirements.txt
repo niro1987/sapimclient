@@ -1,1 +1,2 @@
-sapimclient
+aiohttp==3.9.3
+pydantic==2.6.4
