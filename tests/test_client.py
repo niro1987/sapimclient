@@ -16,6 +16,18 @@ from sapimclient.model.base import Resource
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
+class MockResource(Resource):
+    """MockResource resource."""
+
+    attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+    attr_seq: ClassVar[str] = 'egg_seq'
+    egg_seq: str | None = None
+    name: str
+
+
+mock_url = re.compile(r'^.*api/v2/eggs.*$')
+
+
 async def test_tenant_request(
     tenant: Tenant,
     mocked: aioresponses,
@@ -203,18 +215,9 @@ async def test_tenant_create(
     mocked: aioresponses,
 ) -> None:
     """Test tenant create happy flow."""
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='spamm')
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=201,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'name': 'eggs'}]},
@@ -233,18 +236,9 @@ async def test_tenant_create_error(
     Response status indicates an error (400).
     Error data does not mention resource.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='Spamm')
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={
@@ -284,7 +278,7 @@ async def test_tenant_create_error_already_exists(
         effective_end_date=date(2200, 1, 1),
     )
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={
@@ -330,7 +324,7 @@ async def test_tenant_create_error_missing_field(
         effective_end_date=date(2200, 1, 1),
     )
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'name': 'TCMP_1002:E: A value is required'}]},
@@ -363,7 +357,7 @@ async def test_tenant_create_error_unexpected(
         bacon=False,
     )
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'bacon': 'eggs need bacon'}]},
@@ -382,20 +376,11 @@ async def test_tenant_create_error_payload(
     Request status indicates success.
     Response payload does not match expected schema.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(
         name='Spamm',
     )
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=200,
         headers={'Content-Type': 'application/json'},
         payload={'bacon': 'out of bacon'},
@@ -415,18 +400,9 @@ async def test_tenant_create_error_validation(
     Response status indicates success.
     Response payload did not pass model validation.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='spamm')
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=201,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
@@ -441,18 +417,9 @@ async def test_tenant_update(
     mocked: aioresponses,
 ) -> None:
     """Test tenant update happy flow."""
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='Spamm')
     mocked.post(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=201,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'name': 'eggs'}]},
@@ -464,7 +431,7 @@ async def test_tenant_update(
 
     resource.name = 'bacon'
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=200,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'name': 'bacon'}]},
@@ -482,18 +449,9 @@ async def test_tenant_update_error_not_modified(
 
     Response status indicates not modified (304).
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='Spamm')
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=304,
     )
     response = await tenant.update(resource)
@@ -509,18 +467,9 @@ async def test_tenant_update_error(
     Response status indicates an error (400).
     Error data does not mention resource.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='Spamm')
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={
@@ -558,7 +507,7 @@ async def test_tenant_update_error_on_field(
         effective_end_date=date(2024, 1, 1),
     )
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={
@@ -597,7 +546,7 @@ async def test_tenant_update_error_unexpected(
         bacon=False,
     )
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=400,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'bacon': 'eggs need bacon'}]},
@@ -616,20 +565,11 @@ async def test_tenant_update_error_payload(
     Request status indicates success.
     Response payload does not match expected schema.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(
         name='Spamm',
     )
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=200,
         headers={'Content-Type': 'application/json'},
         payload={'bacon': 'out of bacon'},
@@ -649,18 +589,9 @@ async def test_tenant_update_error_validation(
     Response status indicates success.
     Response payload did not pass model validation.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='spamm')
     mocked.put(
-        url=f'{tenant.host}/api/v2/eggs',
+        url=mock_url,
         status=200,
         headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
@@ -675,18 +606,9 @@ async def test_tenant_delete(
     mocked: aioresponses,
 ) -> None:
     """Test tenant delete happy flow."""
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(egg_seq='spamm', name='spamm')
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(spamm)',
+        url=mock_url,
         status=200,
         payload={
             'eggs': {
@@ -707,15 +629,6 @@ async def test_tenant_delete_error_seq_none(
     The resource seq attribute is `None` or falsy.
     Request is never sent.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(name='spamm')
     with pytest.raises(exceptions.SAPDeleteFailedError) as err:
         await tenant.delete(resource)
@@ -738,18 +651,9 @@ async def test_tenant_delete_error_seq_invalid(
     Response status indicates an error (500).
     Error data does not mention resource.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(egg_seq='123', name='spamm')
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=500,
         payload={
             'timeStamp': '2024-01-01T01:02:03.04+05:06',
@@ -770,18 +674,9 @@ async def test_tenant_delete_error_seq_not_found(
     Response status indicates an error (400).
     Error data indicates why delete failed.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(egg_seq='123', name='spamm')
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=400,
         payload={
             'eggs': {
@@ -794,7 +689,7 @@ async def test_tenant_delete_error_seq_not_found(
     assert 'TCMP_09007' in str(err.value)
 
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=400,
         payload={
             'eggs': {
@@ -812,7 +707,7 @@ async def test_tenant_delete_error_seq_not_found(
 
     # This should not happen, including it here to satify coverage
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=500,
         payload={
             'eggs': {
@@ -826,7 +721,7 @@ async def test_tenant_delete_error_seq_not_found(
     assert 'Unexpected payload' in str(err.value)
 
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=200,
         payload={
             'timeStamp': '2024-01-01T01:02:03.04+05:06',
@@ -846,18 +741,9 @@ async def test_tenant_delete_error_unexpected(
     Response status indicated success.
     Response payload does not mention resource seq.
     """
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     resource = MockResource(egg_seq='123', name='spamm')
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=200,
         payload={
             'timeStamp': '2024-01-01T01:02:03.04+05:06',
@@ -869,7 +755,7 @@ async def test_tenant_delete_error_unexpected(
     assert 'Invalid Resource Payload' in str(err.value)
 
     mocked.delete(
-        url=f'{tenant.host}/api/v2/eggs(123)',
+        url=mock_url,
         status=200,
         payload={
             'eggs': {
@@ -888,17 +774,8 @@ async def test_tenant_read_all(
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all happy flow."""
-
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
     mocked.get(
-        url=f'{tenant.host}/api/v2/eggs?top=1',
+        url=mock_url,
         status=200,
         payload={
             'eggs': [{'eggSeq': '123', 'name': 'spamm'}],
@@ -906,7 +783,7 @@ async def test_tenant_read_all(
         },
     )
     mocked.get(
-        url=f'{tenant.host}/api/v2/eggs?top=1&skip=1',
+        url=mock_url,
         status=200,
         payload={
             'eggs': [{'eggSeq': '456', 'name': 'eggs'}],
@@ -925,18 +802,12 @@ async def test_tenant_read_all_page_size(
     tenant: Tenant,
     mocked: aioresponses,
 ) -> None:
-    """Test tenant read all adjust page size."""
+    """Test tenant read all page size.
 
-    class MockResource(Resource):
-        """MockResource resource."""
-
-        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
-        attr_seq: ClassVar[str] = 'egg_seq'
-        egg_seq: str | None = None
-        name: str
-
+    page_size within bounds, page_size=2.
+    """
     mocked.get(
-        url=re.compile(r'^.*/api/v2/eggs.*$'),
+        url=mock_url,
         status=200,
         payload={'eggs': []},
         repeat=True,
@@ -948,6 +819,15 @@ async def test_tenant_read_all_page_size(
         assert 'top=2' in str(request[1])
     mocked.requests.clear()
 
+
+async def test_tenant_read_all_page_size_salestransactions(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all adjust page size.
+
+    page_size gets adjusted to 1 for salesTransactions.
+    """
     mocked.get(
         url=re.compile(r'^.*/api/v2/salesTransactions.*$'),
         status=200,
@@ -962,3 +842,76 @@ async def test_tenant_read_all_page_size(
     for request in mocked.requests:
         assert '/api/v2/salesTransactions' in str(request[1])
         assert 'top=1' in str(request[1])
+    mocked.requests.clear()
+
+
+async def test_tenant_read_all_page_size_below_bounds(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all adjust page size.
+
+    page_size out of bounds, page_size = 0.
+    """
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggs': []},
+        repeat=True,
+    )
+    _ = [resource async for resource in tenant.read_all(MockResource, page_size=0)]
+    assert len(mocked.requests) == 1
+    for request in mocked.requests:
+        assert '/api/v2/eggs' in str(request[1])
+        assert 'top=1' in str(request[1])
+    mocked.requests.clear()
+
+
+async def test_tenant_read_all_page_size_above_bounds(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all adjust page size.
+
+    page_size out of bounds, page_size = 1000.
+    """
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggs': []},
+        repeat=True,
+    )
+    _ = [resource async for resource in tenant.read_all(MockResource, page_size=1000)]
+    assert len(mocked.requests) == 1
+    for request in mocked.requests:
+        assert '/api/v2/eggs' in str(request[1])
+        assert 'top=100' in str(request[1])
+    mocked.requests.clear()
+
+
+async def test_tenant_read_all_filter(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all adjust page size.
+
+    page_size out of bounds, page_size = 1000.
+    """
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggs': []},
+        repeat=True,
+    )
+    _ = [
+        resource
+        async for resource in tenant.read_all(
+            MockResource,
+            filters="spamm eq 'eggs'",
+        )
+    ]
+    assert len(mocked.requests) == 1
+    for request in mocked.requests:
+        assert '/api/v2/eggs' in str(request[1])
+        assert '%2524filter=spamm+eq+%2527eggs%2527' in str(request[1])
+    mocked.requests.clear()
