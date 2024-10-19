@@ -1,6 +1,7 @@
 """Test for SAP Incentive Management Client."""
 
 import logging
+import re
 from datetime import date, datetime
 from typing import ClassVar
 
@@ -8,7 +9,7 @@ import pytest
 from aiohttp import ClientError
 from aioresponses import aioresponses
 
-from sapimclient import Tenant, exceptions
+from sapimclient import Tenant, exceptions, model
 from sapimclient.const import HTTPMethod
 from sapimclient.model.base import Resource
 
@@ -918,3 +919,46 @@ async def test_tenant_read_all(
     assert len(resources) == 2
     assert resources[0].egg_seq == '123'
     assert resources[1].egg_seq == '456'
+
+
+async def test_tenant_read_all_page_size(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all adjust page size."""
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    mocked.get(
+        url=re.compile(r'^.*/api/v2/eggs.*$'),
+        status=200,
+        payload={'eggs': []},
+        repeat=True,
+    )
+    _ = [resource async for resource in tenant.read_all(MockResource, page_size=2)]
+    assert len(mocked.requests) == 1
+    for request in mocked.requests:
+        assert '/api/v2/eggs' in str(request[1])
+        assert 'top=2' in str(request[1])
+    mocked.requests.clear()
+
+    mocked.get(
+        url=re.compile(r'^.*/api/v2/salesTransactions.*$'),
+        status=200,
+        payload={'salesTransactions': []},
+        repeat=True,
+    )
+    _ = [
+        resource
+        async for resource in tenant.read_all(model.SalesTransaction, page_size=2)
+    ]
+    assert len(mocked.requests) == 1
+    for request in mocked.requests:
+        assert '/api/v2/salesTransactions' in str(request[1])
+        assert 'top=1' in str(request[1])
