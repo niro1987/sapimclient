@@ -549,24 +549,29 @@ async def test_tenant_update_error_on_field(
         attr_endpoint: ClassVar[str] = 'api/v2/eggs'
         attr_seq: ClassVar[str] = 'egg_seq'
         egg_seq: str | None = None
-        # name: str # missing field
         effective_start_date: datetime
         effective_end_date: datetime
 
     resource = MockResource(
         effective_start_date=date(2025, 1, 1),
-        effective_end_date=date(2200, 1, 1),
+        effective_end_date=date(2024, 1, 1),
     )
     mocked.put(
         url=f'{tenant.host}/api/v2/eggs',
         status=400,
         headers={'Content-Type': 'application/json'},
-        payload={'eggs': [{'name': 'TCMP_1002:E: A value is required'}]},
+        payload={
+            'eggs': [
+                {
+                    '_ERROR_': 'TCMP_09022:E: The effective range is invalid.',
+                },
+            ],
+        },
     )
 
     with pytest.raises(exceptions.SAPResponseError) as err:
         await tenant.update(resource)
-    assert 'TCMP_1002' in str(err.value)
+    assert 'TCMP_09022' in str(err.value)
 
 
 async def test_tenant_update_error_unexpected(
@@ -662,3 +667,254 @@ async def test_tenant_update_error_validation(
     with pytest.raises(exceptions.SAPResponseError) as err:
         await tenant.update(resource)
     assert 'name' in str(err.value)
+
+
+async def test_tenant_delete(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant delete happy flow."""
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(egg_seq='spamm', name='spamm')
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(spamm)',
+        status=200,
+        payload={
+            'eggs': {
+                'spamm': 'The record is successfully deleted.',
+            },
+        },
+    )
+    response = await tenant.delete(resource)
+    assert response is True
+
+
+async def test_tenant_delete_error_seq_none(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant delete on resource without seq attribute.
+
+    The resource seq attribute is `None` or falsy.
+    Request is never sent.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(name='spamm')
+    with pytest.raises(exceptions.SAPDeleteFailedError) as err:
+        await tenant.delete(resource)
+    assert 'no unique identifier' in str(err.value)
+    assert len(mocked.requests) == 0
+
+    resource = MockResource(attr_seq=0, name='spamm')
+    with pytest.raises(exceptions.SAPDeleteFailedError) as err:
+        await tenant.delete(resource)
+    assert 'no unique identifier' in str(err.value)
+    assert len(mocked.requests) == 0
+
+
+async def test_tenant_delete_error_seq_invalid(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant delete with invalid seq.
+
+    Response status indicates an error (500).
+    Error data does not mention resource.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(egg_seq='123', name='spamm')
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=500,
+        payload={
+            'timeStamp': '2024-01-01T01:02:03.04+05:06',
+            'message': 'Invalid Resource Payload',
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.delete(resource)
+    assert 'Invalid Resource Payload' in str(err.value)
+
+
+async def test_tenant_delete_error_seq_not_found(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant delete seq not found.
+
+    Response status indicates an error (400).
+    Error data indicates why delete failed.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(egg_seq='123', name='spamm')
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=400,
+        payload={
+            'eggs': {
+                '123': 'TCMP_09007:E: Unable to find the Egg "123".',
+            },
+        },
+    )
+    with pytest.raises(exceptions.SAPDeleteFailedError) as err:
+        await tenant.delete(resource)
+    assert 'TCMP_09007' in str(err.value)
+
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=400,
+        payload={
+            'eggs': {
+                '123': (
+                    'TCMP_35001:E: The Egg spamm could not be removed '
+                    'from Jan 1, 2025 to Dec 31, 2199 because it is referenced '
+                    'during that time by the Bacon, Cheese.'
+                ),
+            },
+        },
+    )
+    with pytest.raises(exceptions.SAPDeleteFailedError) as err:
+        await tenant.delete(resource)
+    assert 'TCMP_35001' in str(err.value)
+
+    # This should not happen, including it here to satify coverage
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=500,
+        payload={
+            'eggs': {
+                'timeStamp': '2024-01-01T01:02:03.04+05:06',
+                'message': 'Invalid Resource Payload',
+            },
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.delete(resource)
+    assert 'Unexpected payload' in str(err.value)
+
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=200,
+        payload={
+            'timeStamp': '2024-01-01T01:02:03.04+05:06',
+            'message': 'Invalid Resource Payload',
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.delete(resource)
+
+
+async def test_tenant_delete_error_unexpected(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant delete unexpected error.
+
+    Response status indicated success.
+    Response payload does not mention resource seq.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(egg_seq='123', name='spamm')
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=200,
+        payload={
+            'timeStamp': '2024-01-01T01:02:03.04+05:06',
+            'message': 'Invalid Resource Payload',
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.delete(resource)
+    assert 'Invalid Resource Payload' in str(err.value)
+
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/eggs(123)',
+        status=200,
+        payload={
+            'eggs': {
+                'timeStamp': '2024-01-01T01:02:03.04+05:06',
+                'message': 'Invalid Resource Payload',
+            },
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.delete(resource)
+    assert 'Invalid Resource Payload' in str(err.value)
+
+
+async def test_tenant_read_all(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all happy flow."""
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    mocked.get(
+        url=f'{tenant.host}/api/v2/eggs?top=1',
+        status=200,
+        payload={
+            'eggs': [{'eggSeq': '123', 'name': 'spamm'}],
+            'next': '/v2/eggs?top=1&skip=1',
+        },
+    )
+    mocked.get(
+        url=f'{tenant.host}/api/v2/eggs?top=1&skip=1',
+        status=200,
+        payload={
+            'eggs': [{'eggSeq': '456', 'name': 'eggs'}],
+        },
+    )
+    resources = [
+        resource async for resource in tenant.read_all(MockResource, page_size=1)
+    ]
+    assert len(mocked.requests) == 2
+    assert len(resources) == 2
+    assert resources[0].egg_seq == '123'
+    assert resources[1].egg_seq == '456'
