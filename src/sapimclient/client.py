@@ -260,7 +260,7 @@ class Tenant:
         except ValidationError as exc:
             for error in exc.errors():
                 LOGGER.exception('%s on %s', error, data)
-            raise
+            raise exceptions.SAPResponseError(str(exc)) from exc
 
     async def delete(self, resource: T) -> bool:
         """Delete a resource.
@@ -337,6 +337,9 @@ class Tenant:
 
         Yields:
             T: Matching resource.
+
+        Raises:
+            SAPResponseError: If the read encountered an error.
         """
         page_size = min(max(page_size, MIN_PAGE_SIZE), MIN_PAGE_SIZE)
 
@@ -389,7 +392,7 @@ class Tenant:
                 except ValidationError as exc:
                     for error in exc.errors():
                         LOGGER.exception('%s on %s', error, item)
-                    raise
+                    raise exceptions.SAPResponseError(str(exc)) from exc
 
             if not (next_uri := response.get(ATTR_NEXT)):
                 break
@@ -444,6 +447,7 @@ class Tenant:
 
         Raises:
             SAPBadRequestError: If the resource was not found.
+            SAPResponseError: If the read encountered an error.
         """
         LOGGER.debug('Read Seq %s(%s)', resource_cls.__name__, seq)
 
@@ -465,7 +469,7 @@ class Tenant:
         except ValidationError as exc:
             for error in exc.errors():
                 LOGGER.exception('%s on %s', error, response)
-            raise
+            raise exceptions.SAPResponseError(str(exc)) from exc
 
     async def read(self, resource: T) -> T:
         """Reload a fully initiated resource.
