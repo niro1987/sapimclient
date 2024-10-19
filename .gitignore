@@ -7,3 +7,4 @@ build/
 *.log
 docs/html/
 node_modules/
+.coverage
