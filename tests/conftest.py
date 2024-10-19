@@ -95,7 +95,7 @@ async def fixture_tenant(
     session: ClientSession,
 ) -> Tenant:
     """Yield a Tenant instance."""
-    return Tenant('TEST', session, verify_ssl=False)
+    return Tenant('TEST', session)
 
 
 @pytest.fixture(name='mocked')
