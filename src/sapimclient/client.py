@@ -159,7 +159,11 @@ class Tenant:
         LOGGER.debug('Create %s(%s)', cls.__name__, resource)
 
         attr_resource: str = resource.attr_endpoint.split('/')[-1]
-        json: dict[str, Any] = resource.model_dump(by_alias=True, exclude_none=True)
+        json: dict[str, Any] = resource.model_dump(
+            mode='json',
+            by_alias=True,
+            exclude_none=True,
+        )
 
         try:
             response: dict[str, Any] = await self._request(
@@ -197,7 +201,7 @@ class Tenant:
         except ValidationError as exc:
             for error in exc.errors():
                 LOGGER.exception('%s on %s', error, data)
-            raise
+            raise exceptions.SAPResponseError(str(exc)) from exc
 
     async def update(self, resource: T) -> T:
         """Update an existing resource.
@@ -215,7 +219,11 @@ class Tenant:
         LOGGER.debug('Update %s(%s)', cls.__name__, resource)
 
         attr_resource: str = resource.attr_endpoint.split('/')[-1]
-        json: dict[str, Any] = resource.model_dump(by_alias=True, exclude_none=True)
+        json: dict[str, Any] = resource.model_dump(
+            mode='json',
+            by_alias=True,
+            exclude_none=True,
+        )
 
         try:
             response: dict[str, Any] = await self._request(
@@ -500,7 +508,11 @@ class Tenant:
             SAPResponseError: If the pipeline failed to run.
         """
         LOGGER.debug('Run pipeline %s', type(job).__name__)
-        json: dict[str, Any] = job.model_dump(by_alias=True, exclude_none=True)
+        json: dict[str, Any] = job.model_dump(
+            mode='json',
+            by_alias=True,
+            exclude_none=True,
+        )
 
         try:
             response: dict[str, Any] = await self._request(
