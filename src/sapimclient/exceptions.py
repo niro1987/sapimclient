@@ -59,3 +59,11 @@ class SAPNotFoundError(SAPExceptionError):
     def __init__(self, value: str) -> None:
         """Initialize a Not Found exception."""
         super().__init__(f'{value} not found.')
+
+
+class SAPDeleteFailedError(SAPExceptionError):
+    """Exception to indicate resource could not be deleted."""
+
+    def __init__(self, reason: str) -> None:
+        """Initialize a Delete Failed exception."""
+        super().__init__(reason)

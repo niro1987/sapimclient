@@ -41,6 +41,7 @@ ERROR_DELETE_PIPELINE: str = 'TCMP_60255'
 ERROR_MISSING_FIELD: str = 'TCMP_1002'
 ERROR_NOT_FOUND: str = 'TCMP_09007'
 ERROR_REFERRED_BY: str = 'TCMP_35001'
+ERROR_OBTAIN_ACCESS: str = 'TCMP_09012'
 ERROR_REMOVE_FAILED: str = 'TCMP_35243'
 MIN_PAGE_SIZE: int = 1
 MAX_PAGE_SIZE: int = 100
@@ -272,7 +273,7 @@ class Tenant:
             bool: True if the resource was deleted. Raises an exception othwise.
 
         Raises:
-            SAPNotFoundError: If the resource does not exist.
+            SAPDeleteFailedError: If the deletion failed.
             SAPResponseError: If the deletion encountered an error.
         """
         cls = type(resource)
@@ -281,7 +282,7 @@ class Tenant:
         attr_resource: str = resource.attr_endpoint.split('/')[-1]
         if not (seq := resource.seq):
             msg = f'Resource {cls.__name__} has no unique identifier'
-            raise exceptions.SAPNotFoundError('seq')
+            raise exceptions.SAPDeleteFailedError(msg)
         uri: str = f'{resource.attr_endpoint}({seq})'
 
         try:
@@ -303,7 +304,7 @@ class Tenant:
 
             error_message: str = error_data[seq]
             LOGGER.exception(error_message)
-            raise exceptions.SAPNotFoundError(error_message) from err
+            raise exceptions.SAPDeleteFailedError(error_message) from err
 
         if attr_resource not in response:
             msg = f'Unexpected payload. {response}'
