@@ -531,3 +531,134 @@ async def test_tenant_update_error(
     with pytest.raises(exceptions.SAPResponseError) as err:
         await tenant.update(resource)
     assert 'Invalid Resource' in str(err.value)
+
+
+async def test_tenant_update_error_on_field(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant create error on field.
+
+    Response status indicates an error (400).
+    Error data indicates resource field has an error.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        # name: str # missing field
+        effective_start_date: datetime
+        effective_end_date: datetime
+
+    resource = MockResource(
+        effective_start_date=date(2025, 1, 1),
+        effective_end_date=date(2200, 1, 1),
+    )
+    mocked.put(
+        url=f'{tenant.host}/api/v2/eggs',
+        status=400,
+        headers={'Content-Type': 'application/json'},
+        payload={'eggs': [{'name': 'TCMP_1002:E: A value is required'}]},
+    )
+
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.update(resource)
+    assert 'TCMP_1002' in str(err.value)
+
+
+async def test_tenant_update_error_unexpected(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant create error unexpected.
+
+    Response status indicates an error (400).
+    Error data does not mention any known error message.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        bacon: bool
+
+    resource = MockResource(
+        bacon=False,
+    )
+    mocked.put(
+        url=f'{tenant.host}/api/v2/eggs',
+        status=400,
+        headers={'Content-Type': 'application/json'},
+        payload={'eggs': [{'bacon': 'eggs need bacon'}]},
+    )
+
+    with pytest.raises(exceptions.SAPResponseError):
+        await tenant.update(resource)
+
+
+async def test_tenant_update_error_payload(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant create error payload.
+
+    Request status indicates success.
+    Response payload does not match expected schema.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(
+        name='Spamm',
+    )
+    mocked.put(
+        url=f'{tenant.host}/api/v2/eggs',
+        status=200,
+        headers={'Content-Type': 'application/json'},
+        payload={'bacon': 'out of bacon'},
+    )
+
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.update(resource)
+    assert 'Unexpected payload' in str(err.value)
+
+
+async def test_tenant_update_error_validation(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant create error model validation.
+
+    Response status indicates success.
+    Response payload did not pass model validation.
+    """
+
+    class MockResource(Resource):
+        """MockResource resource."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+        attr_seq: ClassVar[str] = 'egg_seq'
+        egg_seq: str | None = None
+        name: str
+
+    resource = MockResource(name='spamm')
+    mocked.put(
+        url=f'{tenant.host}/api/v2/eggs',
+        status=200,
+        headers={'Content-Type': 'application/json'},
+        payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.update(resource)
+    assert 'name' in str(err.value)
