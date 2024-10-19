@@ -341,7 +341,7 @@ class Tenant:
         Raises:
             SAPResponseError: If the read encountered an error.
         """
-        page_size = min(max(page_size, MIN_PAGE_SIZE), MIN_PAGE_SIZE)
+        page_size = min(max(page_size, MIN_PAGE_SIZE), MAX_PAGE_SIZE)
 
         # FIX: Issue #30
         if resource_cls is model.SalesTransaction and page_size != 1:
