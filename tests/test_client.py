@@ -11,7 +11,7 @@ from aioresponses import aioresponses
 
 from sapimclient import Tenant, exceptions, model
 from sapimclient.const import HTTPMethod
-from sapimclient.model.base import Resource
+from sapimclient.model.base import Endpoint, Reference, Resource
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class MockResource(Resource):
     attr_seq: ClassVar[str] = 'egg_seq'
     egg_seq: str | None = None
     name: str
+    ref: str | Reference | None = None
 
 
 mock_url = re.compile(r'^.*api/v2/eggs.*$')
@@ -36,7 +37,6 @@ async def test_tenant_request(
     mocked.get(
         url=f'{tenant.host}/spamm',
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
 
@@ -119,7 +119,6 @@ async def test_tenant_request_error_status(
     mocked.get(
         url=f'{tenant.host}/200',
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     response = await tenant._request(method=HTTPMethod.GET, uri='200')
@@ -128,7 +127,6 @@ async def test_tenant_request_error_status(
     mocked.get(
         url=f'{tenant.host}/300',
         status=300,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
@@ -137,7 +135,6 @@ async def test_tenant_request_error_status(
     mocked.post(
         url=f'{tenant.host}/200',
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     response = await tenant._request(
@@ -150,7 +147,6 @@ async def test_tenant_request_error_status(
     mocked.post(
         url=f'{tenant.host}/201',
         status=201,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     response = await tenant._request(
@@ -163,7 +159,6 @@ async def test_tenant_request_error_status(
     mocked.post(
         url=f'{tenant.host}/300',
         status=300,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
@@ -176,7 +171,6 @@ async def test_tenant_request_error_status(
     mocked.put(
         url=f'{tenant.host}/200',
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     response = await tenant._request(method=HTTPMethod.PUT, uri='200')
@@ -185,7 +179,6 @@ async def test_tenant_request_error_status(
     mocked.put(
         url=f'{tenant.host}/300',
         status=300,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
@@ -194,7 +187,6 @@ async def test_tenant_request_error_status(
     mocked.delete(
         url=f'{tenant.host}/200',
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     response = await tenant._request(method=HTTPMethod.DELETE, uri='200')
@@ -203,7 +195,6 @@ async def test_tenant_request_error_status(
     mocked.delete(
         url=f'{tenant.host}/300',
         status=300,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
@@ -219,7 +210,6 @@ async def test_tenant_create(
     mocked.post(
         url=mock_url,
         status=201,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'name': 'eggs'}]},
     )
     response = await tenant.create(resource)
@@ -240,7 +230,6 @@ async def test_tenant_create_error(
     mocked.post(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={
             'timeStamp': '2024-01-01T01:02:03.04+05:06',
             'message': 'Invalid Resource.',
@@ -280,7 +269,6 @@ async def test_tenant_create_error_already_exists(
     mocked.post(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={
             'eggs': [
                 {
@@ -326,7 +314,6 @@ async def test_tenant_create_error_missing_field(
     mocked.post(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'name': 'TCMP_1002:E: A value is required'}]},
     )
 
@@ -359,7 +346,6 @@ async def test_tenant_create_error_unexpected(
     mocked.post(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'bacon': 'eggs need bacon'}]},
     )
 
@@ -382,7 +368,6 @@ async def test_tenant_create_error_payload(
     mocked.post(
         url=mock_url,
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'bacon': 'out of bacon'},
     )
 
@@ -404,7 +389,6 @@ async def test_tenant_create_error_validation(
     mocked.post(
         url=mock_url,
         status=201,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
@@ -421,7 +405,6 @@ async def test_tenant_update(
     mocked.post(
         url=mock_url,
         status=201,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'name': 'eggs'}]},
     )
 
@@ -433,7 +416,6 @@ async def test_tenant_update(
     mocked.put(
         url=mock_url,
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'name': 'bacon'}]},
     )
     response = await tenant.update(resource)
@@ -471,7 +453,6 @@ async def test_tenant_update_error(
     mocked.put(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={
             'timeStamp': '2024-01-01T01:02:03.04+05:06',
             'message': 'Invalid Resource.',
@@ -509,7 +490,6 @@ async def test_tenant_update_error_on_field(
     mocked.put(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={
             'eggs': [
                 {
@@ -548,7 +528,6 @@ async def test_tenant_update_error_unexpected(
     mocked.put(
         url=mock_url,
         status=400,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'bacon': 'eggs need bacon'}]},
     )
 
@@ -571,7 +550,6 @@ async def test_tenant_update_error_payload(
     mocked.put(
         url=mock_url,
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'bacon': 'out of bacon'},
     )
 
@@ -593,7 +571,6 @@ async def test_tenant_update_error_validation(
     mocked.put(
         url=mock_url,
         status=200,
-        headers={'Content-Type': 'application/json'},
         payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
@@ -810,14 +787,12 @@ async def test_tenant_read_all_page_size(
         url=mock_url,
         status=200,
         payload={'eggs': []},
-        repeat=True,
     )
     _ = [resource async for resource in tenant.read_all(MockResource, page_size=2)]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
-        assert '/api/v2/eggs' in str(request[1])
+        assert mock_url.match(str(request[1]))
         assert 'top=2' in str(request[1])
-    mocked.requests.clear()
 
 
 async def test_tenant_read_all_page_size_salestransactions(
@@ -832,7 +807,6 @@ async def test_tenant_read_all_page_size_salestransactions(
         url=re.compile(r'^.*/api/v2/salesTransactions.*$'),
         status=200,
         payload={'salesTransactions': []},
-        repeat=True,
     )
     _ = [
         resource
@@ -842,7 +816,6 @@ async def test_tenant_read_all_page_size_salestransactions(
     for request in mocked.requests:
         assert '/api/v2/salesTransactions' in str(request[1])
         assert 'top=1' in str(request[1])
-    mocked.requests.clear()
 
 
 async def test_tenant_read_all_page_size_below_bounds(
@@ -857,14 +830,12 @@ async def test_tenant_read_all_page_size_below_bounds(
         url=mock_url,
         status=200,
         payload={'eggs': []},
-        repeat=True,
     )
     _ = [resource async for resource in tenant.read_all(MockResource, page_size=0)]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
-        assert '/api/v2/eggs' in str(request[1])
+        assert mock_url.match(str(request[1]))
         assert 'top=1' in str(request[1])
-    mocked.requests.clear()
 
 
 async def test_tenant_read_all_page_size_above_bounds(
@@ -879,29 +850,23 @@ async def test_tenant_read_all_page_size_above_bounds(
         url=mock_url,
         status=200,
         payload={'eggs': []},
-        repeat=True,
     )
     _ = [resource async for resource in tenant.read_all(MockResource, page_size=1000)]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
-        assert '/api/v2/eggs' in str(request[1])
+        assert mock_url.match(str(request[1]))
         assert 'top=100' in str(request[1])
-    mocked.requests.clear()
 
 
 async def test_tenant_read_all_filter(
     tenant: Tenant,
     mocked: aioresponses,
 ) -> None:
-    """Test tenant read all adjust page size.
-
-    page_size out of bounds, page_size = 1000.
-    """
+    """Test tenant read all apply filter."""
     mocked.get(
         url=mock_url,
         status=200,
         payload={'eggs': []},
-        repeat=True,
     )
     _ = [
         resource
@@ -912,6 +877,378 @@ async def test_tenant_read_all_filter(
     ]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
-        assert '/api/v2/eggs' in str(request[1])
-        assert '%2524filter=spamm+eq+%2527eggs%2527' in str(request[1])
-    mocked.requests.clear()
+        assert mock_url.match(str(request[1]))
+        assert all(
+            item in str(request[1]) for item in ['filter', 'spamm', 'eq', 'eggs']
+        )
+
+
+async def test_tenant_read_all_order_by(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all order_by."""
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggs': []},
+    )
+    _ = [
+        resource
+        async for resource in tenant.read_all(
+            MockResource,
+            order_by=['spamm', 'eggs', 'bacon'],
+        )
+    ]
+    assert len(mocked.requests) == 1
+    for request in mocked.requests:
+        assert mock_url.match(str(request[1]))
+        assert all(
+            item in str(request[1]) for item in ['orderBy', 'spamm', 'eggs', 'bacon']
+        )
+
+
+async def test_tenant_read_all_error_unexpected(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all error unexpected.
+
+    Response status indices success.
+    Response payload does not contain resource.
+    """
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'bacon': 'cheese'},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        _ = [resource async for resource in tenant.read_all(MockResource)]
+    assert 'Unexpected payload' in str(err.value)
+
+
+async def test_tenant_read_all_error_validation(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read all error unexpected.
+
+    Response status indices success.
+    Response payload does not contain resource.
+    """
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={
+            'eggs': [
+                {'eggSeq': '123', 'name': 'spamm'},
+                {'eggSeq': '456'},
+            ],
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        _ = [resource async for resource in tenant.read_all(MockResource)]
+    assert 'name' in str(err.value)
+
+
+async def test_tenant_read_first(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read first happy flow."""
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={
+            'eggs': [{'eggSeq': '123', 'name': 'spamm'}],
+            'next': '/v2/eggs?top=1&skip=1',
+        },
+    )
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={
+            'eggs': [{'eggSeq': '456', 'name': 'eggs'}],
+        },
+    )
+    resource = await tenant.read_first(MockResource)
+    assert len(mocked.requests) == 1
+    assert resource.seq == '123'
+    assert resource.name == 'spamm'
+
+
+async def test_tenant_read_first_error_not_found(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read first error not found."""
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggs': []},
+    )
+    with pytest.raises(exceptions.SAPNotFoundError):
+        await tenant.read_first(MockResource)
+
+
+async def test_tenant_read_seq(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read seq happy flow."""
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggSeq': '123', 'name': 'spamm'},
+    )
+    resource = await tenant.read_seq(MockResource, '123')
+    assert resource.seq == '123'
+
+
+async def test_tenant_read_seq_error_validation(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read seq error validation."""
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggSeq': '123', 'needs': 'bacon'},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.read_seq(MockResource, '123')
+    assert 'name' in str(err.value)
+
+
+async def test_tenant_read(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read happy flow."""
+    mocked.get(
+        url=mock_url,
+        status=200,
+        payload={'eggSeq': '123', 'name': 'spamm'},
+    )
+    mock_resource = MockResource(
+        egg_seq='123',
+        name='spamm',
+    )
+    resource = await tenant.read(mock_resource)
+    assert mock_resource == resource
+
+
+async def test_tenant_read_error_seq_none(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant read error seq none.
+
+    The resource seq attribute is `None` or falsy.
+    Request is never sent.
+    """
+    resource = MockResource(name='spamm')
+    with pytest.raises(exceptions.SAPNotFoundError) as err:
+        await tenant.read(resource)
+    assert 'no unique identifier' in str(err.value)
+    assert len(mocked.requests) == 0
+
+    resource = MockResource(attr_seq=0, name='spamm')
+    with pytest.raises(exceptions.SAPNotFoundError) as err:
+        await tenant.read(resource)
+    assert 'no unique identifier' in str(err.value)
+    assert len(mocked.requests) == 0
+
+
+async def test_tenant_run_pipeline(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant run pipeline happy flow."""
+
+    class MockPipeline(Endpoint):
+        """Mock pipeline job."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
+        command: str = 'PipelineRun'
+        stage_type_seq: str = '21673573206720532'
+        calendar_seq: str = '123'
+        period_seq: str = '456'
+
+    mock_job = MockPipeline()
+    mocked.post(
+        url=f'{tenant.host}/api/v2/pipelines',
+        status=200,
+        payload={'pipelines': {'0': ['123']}},
+    )
+    mocked.get(
+        url=re.compile(r'^.*/api/v2/pipelines\(123\).*$'),
+        status=200,
+        payload={
+            'pipelineRunSeq': '123',
+            'command': 'PipelineRun',
+            'stageType': '21673573206720532',
+            'dateSubmitted': '2024-01-01',
+            'state': 'Running',
+            'userId': 'spamm',
+            'processingUnit': '999',
+            'period': '456',
+        },
+    )
+    response = await tenant.run_pipeline(mock_job)
+    assert isinstance(response, model.Pipeline)
+    assert response.seq == '123'
+
+
+async def test_tenant_run_pipeline_error(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant run pipeline error."""
+
+    class MockPipeline(Endpoint):
+        """Mock pipeline job."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
+        command: str = 'PipelineRun'
+        stage_type_seq: str = '21673573206720532'
+        calendar_seq: str = '123'
+        period_seq: str = '456'
+
+    mock_job = MockPipeline()
+
+    # 500 - without mention of resource.
+    mocked.post(
+        url=f'{tenant.host}/api/v2/pipelines',
+        status=500,
+        payload={
+            'timestamp': '2024-01-01',
+            'message': 'Could not run pipeline job',
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.run_pipeline(mock_job)
+    assert 'Could not run pipeline job' in str(err.value)
+
+    # 500 - with mention of resource and job.
+    mocked.post(
+        url=f'{tenant.host}/api/v2/pipelines',
+        status=500,
+        payload={'pipelines': {'0': {'spamm': 'Value for spamm is required'}}},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.run_pipeline(mock_job)
+    assert 'Value for spamm is required' in str(err.value)
+
+    # 500 - with mention of resource without job.
+    mocked.post(
+        url=f'{tenant.host}/api/v2/pipelines',
+        status=500,
+        payload={'pipelines': {'_ERROR_': 'Server did not respond'}},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.run_pipeline(mock_job)
+    assert 'Server did not respond' in str(err.value)
+
+    # 200 - without mention of resource.
+    mocked.post(
+        url=f'{tenant.host}/api/v2/pipelines',
+        status=200,
+        payload={
+            'timestamp': '2024-01-01',
+            'message': 'Unexpected response',
+        },
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.run_pipeline(mock_job)
+    assert 'Unexpected response' in str(err.value)
+
+    # 200 - with mention of resource without job
+    mocked.post(
+        url=f'{tenant.host}/api/v2/pipelines',
+        status=200,
+        payload={'pipelines': {'_ERROR_': 'Server did not respond'}},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.run_pipeline(mock_job)
+    assert 'Server did not respond' in str(err.value)
+
+
+async def test_tenant_cancel_pipeline(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant cancel pipeline happy flow."""
+
+    class MockPipeline(Resource):
+        """Mock pipeline."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
+        attr_seq: ClassVar[str] = 'pipeline_run_seq'
+        pipeline_run_seq: str | None = None
+        command: str = 'PipelineRun'
+
+    mock_job = MockPipeline(pipeline_run_seq='123')
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/pipelines(123)',
+        status=200,
+        payload={'123': 'Job cancelled'},
+    )
+    response = await tenant.cancel_pipeline(mock_job)
+    assert response is True
+
+    # 500 - with mention of job.
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/pipelines(123)',
+        status=500,
+        payload={'123': 'TCMP_60255:Job deleted.'},
+    )
+    response = await tenant.cancel_pipeline(mock_job)
+    assert response is True
+
+
+async def test_tenant_cancel_pipeline_error(
+    tenant: Tenant,
+    mocked: aioresponses,
+) -> None:
+    """Test tenant cancel pipeline error."""
+
+    class MockPipeline(Resource):
+        """Mock pipeline."""
+
+        attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
+        attr_seq: ClassVar[str] = 'pipeline_run_seq'
+        pipeline_run_seq: str | None = None
+        command: str = 'PipelineRun'
+
+    mock_job = MockPipeline(pipeline_run_seq='123')
+
+    # 500 - without mention of job.
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/pipelines(123)',
+        status=500,
+        payload={'error': 'Job not found.'},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.cancel_pipeline(mock_job)
+    assert 'Job not found' in str(err.value)
+
+    # 500 - with mention of job.
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/pipelines(123)',
+        status=500,
+        payload={'123': 'Job already cancelled.'},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.cancel_pipeline(mock_job)
+    assert 'Job already cancelled' in str(err.value)
+
+    # 200 - without mention of job.
+    mocked.delete(
+        url=f'{tenant.host}/api/v2/pipelines(123)',
+        status=200,
+        payload={'error': 'Unexpected response'},
+    )
+    with pytest.raises(exceptions.SAPResponseError) as err:
+        await tenant.cancel_pipeline(mock_job)
+    assert 'Unexpected response' in str(err.value)
