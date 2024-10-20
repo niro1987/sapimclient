@@ -540,10 +540,10 @@ class Pipeline(Resource):
     stop_time: datetime | None = None
     start_date_scheduled: datetime | None = None
     batch_name: str | None = None
-    priority: int | None = Field(repr=False)
+    priority: int | None = Field(None, repr=False)
     message: str | None = None
-    num_errors: int | None = Field(repr=False)
-    num_warnings: int | None = Field(repr=False)
+    num_errors: int | None = Field(None, repr=False)
+    num_warnings: int | None = Field(None, repr=False)
     run_mode: const.ImportRunMode | const.PipelineRunMode | None = Field(
         None,
         repr=False,
