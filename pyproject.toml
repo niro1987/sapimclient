@@ -91,6 +91,9 @@ ignore = [
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed
     "EM101",  # Exception must not use a string literal, assign to variable first
     "ERA001", # Found commented-out code
+    "TCH001", # Move first-party import into a type-checking block
+    "TCH002", # Move third-party import into a type-checking block
+    "TCH003", # Move standard lib import into a type-checking block
 ]
 
 [tool.ruff.lint.flake8-quotes]

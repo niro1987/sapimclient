@@ -4,9 +4,10 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from aiohttp import ClientError, ClientSession
+from pydantic.fields import FieldInfo
 from pydantic_core import ValidationError
 
 from sapimclient import exceptions, model
@@ -45,10 +46,6 @@ ERROR_OBTAIN_ACCESS: str = 'TCMP_09012'
 ERROR_REMOVE_FAILED: str = 'TCMP_35243'
 MIN_PAGE_SIZE: int = 1
 MAX_PAGE_SIZE: int = 100
-
-
-if TYPE_CHECKING:
-    from pydantic.fields import FieldInfo
 
 
 @dataclass

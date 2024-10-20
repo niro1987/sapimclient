@@ -8,7 +8,8 @@ all other models.
 from datetime import datetime
 from importlib import import_module
 from inspect import isclass
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, get_args, get_origin
+from types import ModuleType
+from typing import Any, ClassVar, Literal, get_args, get_origin
 
 from pydantic import (
     AliasGenerator,
@@ -19,9 +20,6 @@ from pydantic import (
 )
 from pydantic.alias_generators import to_camel
 from pydantic.fields import FieldInfo
-
-if TYPE_CHECKING:
-    from types import ModuleType
 
 
 class _BaseModel(BaseModel):
