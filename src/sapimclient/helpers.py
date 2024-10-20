@@ -1,6 +1,5 @@
 """Helpers for Python SAP Incentive Management Client."""
 
-import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
@@ -161,24 +160,19 @@ class AsyncLimitedGenerator:
 async def retry(
     coroutine_function: Callable,
     *args: Any,
-    exceptions: type[BaseException] | tuple[type[BaseException], ...] | None = None,
-    retries: int = 3,
-    delay: float = 3.0,
+    exceptions: type[BaseException] | tuple[type[BaseException], ...],
+    max_attempts: int = 3,
     **kwargs: Any,
 ) -> Any:
     """Retry a coroutine function a specified number of times."""
-    catch_exc: tuple[type[BaseException], ...]
-    if exceptions is None:
-        catch_exc = (Exception,)
-    elif not isinstance(exceptions, tuple):
-        catch_exc = (exceptions,)
+    if not isinstance(exceptions, tuple):
+        exceptions = (exceptions,)
 
-    for attempt in range(retries):
+    for attempt in range(max_attempts):
         try:
             return await coroutine_function(*args, **kwargs)
-        except catch_exc as err:
+        except exceptions as err:
             LOGGER.debug('Failed attempt %s: %s', attempt + 1, err)
-            if attempt >= retries - 1:
+            if attempt >= max_attempts - 1:
                 raise
-            await asyncio.sleep(delay)
     return None
