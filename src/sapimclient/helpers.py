@@ -167,15 +167,16 @@ async def retry(
     **kwargs: Any,
 ) -> Any:
     """Retry a coroutine function a specified number of times."""
-    if exceptions is not None and not isinstance(exceptions, tuple):
-        exceptions = (exceptions,)
+    catch_exc: tuple[type[BaseException], ...]
+    if exceptions is None:
+        catch_exc = (Exception,)
+    elif not isinstance(exceptions, tuple):
+        catch_exc = (exceptions,)
 
     for attempt in range(retries):
         try:
             return await coroutine_function(*args, **kwargs)
-        except Exception as err:  # pylint: disable=broad-except
-            if exceptions is not None and not isinstance(err, exceptions):
-                raise
+        except catch_exc as err:
             LOGGER.debug('Failed attempt %s: %s', attempt + 1, err)
             if attempt >= retries - 1:
                 raise
