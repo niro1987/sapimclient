@@ -4,8 +4,8 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Any
+from datetime import date, datetime
+from typing import Any, TypeVar
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -26,14 +26,16 @@ class LogicalOperator:
 
     _operator: str = field(init=False, repr=False)
     first: str
-    second: str | int | date
+    second: str | int | date | datetime | bool
 
     def __str__(self) -> str:
         """Return a string representation of the object."""
-        if isinstance(self.second, int):
-            second = f'{self.second}'
-        elif isinstance(self.second, date):
-            second = self.second.strftime('%Y-%m-%d')
+        if isinstance(self.second, bool):
+            second = str(self.second).lower()
+        elif isinstance(self.second, int):
+            second = f"'{self.second} integer'"
+        elif isinstance(self.second, date | datetime):
+            second = self.second.isoformat()
         else:  # str
             second = f"'{self.second}'"
 
@@ -133,19 +135,22 @@ class Or(BooleanOperator):
     _operator: str = 'or'
 
 
+T = TypeVar('T')
+
+
 class AsyncLimitedGenerator:
     """Async generator to limit the number of yielded items."""
 
-    def __init__(self, iterable: AsyncIterator[Any], limit: int) -> None:
+    def __init__(self, iterable: AsyncIterator[T], limit: int) -> None:
         """Initialize the async iterator."""
         self.iterable = iterable
         self.limit = limit
 
-    def __aiter__(self) -> AsyncIterator[Any]:
+    def __aiter__(self) -> AsyncIterator[T]:
         """Return the async iterator."""
         return self
 
-    async def __anext__(self) -> Any:
+    async def __anext__(self) -> T:
         """Return the next item in the async iterator."""
         if self.limit == 0:
             raise StopAsyncIteration
