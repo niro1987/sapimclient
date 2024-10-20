@@ -483,6 +483,9 @@ class Tenant:
         Returns:
             T: The fully initiated resource.
 
+        Raises:
+            SAPNotFoundError: If the resource does not contain a unique identifier.
+
         Example:
             When running a pipeline job, you can wait for the job to complete:
 
@@ -497,7 +500,7 @@ class Tenant:
         LOGGER.debug('Read %s(%s)', cls.__name__, resource.seq)
         if not (seq := resource.seq):
             msg = f'Resource {cls.__name__} has no unique identifier'
-            raise ValueError(msg)
+            raise exceptions.SAPNotFoundError(msg)
         return await self.read_seq(cls, seq)
 
     async def run_pipeline(self, job: model.pipeline._PipelineJob) -> model.Pipeline:
