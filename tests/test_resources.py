@@ -17,9 +17,7 @@ T = TypeVar('T', bound=model.Resource)
 warnings.filterwarnings('error')  # Raise warnings as errors
 
 
-pytest.skip('These tests will run pipelines on your tenant', allow_module_level=True)
-
-
+@pytest.mark.skip('Runs on live tenant')
 @pytest.mark.parametrize(
     'resource_cls',
     list_resource_cls(),
@@ -56,6 +54,7 @@ async def test_resource_model(
         pytest.fail(f'Extra keys found: {extra_keys}')
 
 
+@pytest.mark.skip('Runs on live tenant')
 @pytest.mark.parametrize(
     'resource_cls',
     list_resource_cls(),

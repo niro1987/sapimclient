@@ -5,14 +5,143 @@ from collections.abc import AsyncGenerator
 from typing import TypeVar
 
 import pytest
+from pydantic import ValidationError
 
 from sapimclient import Tenant, const, helpers, model
+from sapimclient.model.pipeline import STAGETABLES, _ImportJob, _PipelineRunJob
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
-T = TypeVar('T', bound=model.pipeline._PipelineRunJob)  # pylint: disable=protected-access
+T = TypeVar('T', bound=_PipelineRunJob)
 
 
-pytest.skip('These tests will run pipelines on your tenant', allow_module_level=True)
+@pytest.mark.parametrize(
+    'module',
+    list(STAGETABLES.keys()),
+)
+def test_purge_stage_tables(module: str) -> None:
+    """Test stage_tables property for Purge pipeline."""
+    job = model.Purge(
+        batch_name='spam',
+        module=module,
+    )
+
+    assert job.stage_tables == STAGETABLES[module]
+
+
+@pytest.mark.parametrize(
+    'module',
+    list(STAGETABLES.keys()),
+)
+def test_import_stage_tables(module: str) -> None:
+    """Test stage_tables property for Purge pipeline."""
+
+    class DummyJob(_ImportJob):
+        """Dummy import job."""
+
+        calendar_seq: str = 'spam'
+        batch_name: str = 'eggs'
+        stage_type_seq: str = 'bacon'
+
+    job = DummyJob(module=module)
+    assert job.stage_tables == STAGETABLES[module]
+
+
+@pytest.mark.parametrize(
+    'module',
+    [e.value for e in const.StageTables],
+)
+def test_import_model_validator(module: str) -> None:
+    """Test model validator for _ImportJob pipelines.
+
+    run_mode can only be 'new' when importing TransactionalData
+    """
+
+    class DummyJob(_ImportJob):
+        """Dummy import job."""
+
+        calendar_seq: str = 'spam'
+        batch_name: str = 'eggs'
+        stage_type_seq: str = 'bacon'
+
+    if module != const.StageTables.TransactionalData:
+        with pytest.raises(ValidationError):
+            DummyJob(
+                module=module,
+                run_mode=const.ImportRunMode.New,
+            )
+
+    job = DummyJob(
+        module=module,
+        run_mode=const.ImportRunMode.All,
+    )
+    assert job.run_mode == const.ImportRunMode.All
+
+
+def test_pipeline_run_mode_validator() -> None:
+    """Test PipelineRunJob validator run_mode."""
+
+    class DummyJob(_PipelineRunJob):
+        """Dummy pipeline run job."""
+
+        calendar_seq: str = 'spam'
+        period_seq: str = 'eggs'
+        stage_type_seq: str = 'bacon'
+
+    job = DummyJob(
+        run_mode=const.PipelineRunMode.Full,
+    )
+    assert job.run_mode == const.PipelineRunMode.Full
+
+    job = DummyJob(
+        run_mode=const.PipelineRunMode.Positions,
+        position_groups=['spam'],
+    )
+    assert job.run_mode == const.PipelineRunMode.Positions
+    assert job.position_groups == ['spam']
+    assert job.position_seqs is None
+
+    job = DummyJob(
+        run_mode=const.PipelineRunMode.Positions,
+        position_seqs=['spam'],
+    )
+    assert job.run_mode == const.PipelineRunMode.Positions
+    assert job.position_seqs == ['spam']
+    assert job.position_groups is None
+
+    # When run_mode is 'full' or 'incremental',
+    # 'position_groups and position_seqs must be None'
+    with pytest.raises(ValidationError) as err:
+        DummyJob(
+            run_mode=const.PipelineRunMode.Full,
+            position_groups=['spam'],
+        )
+    assert 'position_groups' in str(err.value)
+
+    with pytest.raises(ValidationError) as err:
+        DummyJob(
+            run_mode=const.PipelineRunMode.Full,
+            position_seqs=['spam'],
+        )
+    assert 'position_seqs' in str(err.value)
+
+    # When run_mode is 'positions',
+    # either position_groups or position_seqs mut be provided
+    with pytest.raises(ValidationError) as err:
+        DummyJob(
+            run_mode=const.PipelineRunMode.Positions,
+        )
+    assert 'position_groups' in str(err.value)
+    assert 'position_seqs' in str(err.value)
+
+    # Must not provide both position_groups and position_seqs
+    with pytest.raises(ValidationError) as err:
+        DummyJob(
+            run_mode=const.PipelineRunMode.Positions,
+            position_groups=['spam'],
+            position_seqs=['eggs'],
+        )
+    assert 'position_groups' in str(err.value)
+    assert 'position_seqs' in str(err.value)
 
 
 @pytest.fixture(name='cleanup', scope='session')
@@ -68,6 +197,7 @@ async def fixture_period(
     return period
 
 
+@pytest.mark.skip('Runs on live tenant')
 @pytest.mark.parametrize(
     'pipeline_job',
     [
@@ -110,6 +240,7 @@ async def test_pipelinerun(
     assert str(result.period) == period.seq
 
 
+@pytest.mark.skip('Runs on live tenant')
 async def test_xmlimport(
     live_tenant: Tenant,
     cleanup: list[model.Pipeline],
@@ -128,6 +259,7 @@ async def test_xmlimport(
     assert result.stage_type == job.stage_type_seq
 
 
+@pytest.mark.skip('Runs on live tenant')
 @pytest.mark.parametrize(
     'pipeline_job',
     [
@@ -160,6 +292,7 @@ async def test_import(
     assert result.batch_name == job.batch_name
 
 
+@pytest.mark.skip('Runs on live tenant')
 async def test_purge(
     live_tenant: Tenant,
     cleanup: list[model.Pipeline],
@@ -179,6 +312,7 @@ async def test_purge(
     assert result.batch_name == job.batch_name
 
 
+@pytest.mark.skip('Runs on live tenant')
 async def test_resetfromvalidate(
     live_tenant: Tenant,
     cleanup: list[model.Pipeline],
@@ -200,6 +334,7 @@ async def test_resetfromvalidate(
     assert result.batch_name == job.batch_name
 
 
+@pytest.mark.skip('Runs on live tenant')
 async def test_resetfromvalidate_no_batch(
     live_tenant: Tenant,
     cleanup: list[model.Pipeline],
