@@ -173,7 +173,7 @@ class Commission(Resource):
     rate_value: Value
     entry_number: Value
     business_units: list[str] | None = None
-    processing_unit: str = Field(repr=False)
+    processing_unit: str | None = None
     is_private: bool | None = None
     origin_type_id: str
 
@@ -206,7 +206,7 @@ class Credit(Resource, Generic16Mixin):
     comments: str | None = None
     is_private: bool | None = None
     business_units: list[str] | None = None
-    processing_unit: str = Field(repr=False)
+    processing_unit: str | None = None
 
 
 class Deposit(Resource, Generic16Mixin):
@@ -531,7 +531,7 @@ class Pipeline(Resource):
     date_submitted: datetime
     state: const.PipelineState
     user_id: str
-    processing_unit: str = Field(repr=False)
+    processing_unit: str | None = None
     period: str | Reference | None = None
     description: str | None = None
     status: const.PipelineStatus | None = None
