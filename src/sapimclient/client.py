@@ -13,10 +13,9 @@ from pydantic_core import ValidationError
 from sapimclient import exceptions, model
 from sapimclient.const import HTTPMethod
 from sapimclient.helpers import BooleanOperator, LogicalOperator, retry
-from sapimclient.model.base import Resource
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
-T = TypeVar('T', bound=Resource)
+T = TypeVar('T', bound=model.Resource)
 
 REQUEST_TIMEOUT: int = 60
 STATUS_NOT_MODIFIED: int = 304

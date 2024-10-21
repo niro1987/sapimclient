@@ -8,7 +8,7 @@ import pytest
 from pydantic import AliasChoices, BaseModel, Field
 from pydantic.fields import FieldInfo
 
-from sapimclient.model.base import Endpoint, Reference, Resource
+from sapimclient.model import Endpoint, Reference, Resource
 from sapimclient.model.pipeline import _PipelineJob
 
 from tests.conftest import list_endpoint_cls, list_pipeline_job_cls, list_resource_cls

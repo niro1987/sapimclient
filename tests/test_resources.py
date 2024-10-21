@@ -9,12 +9,11 @@ import pytest
 
 from sapimclient import Tenant, model
 from sapimclient.helpers import AsyncLimitedGenerator
-from sapimclient.model.base import Reference, Resource
 
 from tests.conftest import list_resource_cls
 
 LOGGER = logging.getLogger(__name__)
-T = TypeVar('T', bound=model.base.Resource)
+T = TypeVar('T', bound=model.Resource)
 warnings.filterwarnings('error')  # Raise warnings as errors
 
 
@@ -89,9 +88,9 @@ async def test_resource_reference(
             if field_value := getattr(resource, field_name):
                 assert isinstance(
                     field_value,
-                    Reference,
+                    model.Reference,
                 ), f"{field_name}: Invalid Reference '{field_value}'."
                 assert issubclass(
                     field_value.object_type,
-                    Resource,
+                    model.Resource,
                 ), f"{field_name}: Invalid reference type '{field_value.object_type}'."

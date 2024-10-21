@@ -44,9 +44,9 @@ RE_XML: Final[re.Pattern] = re.compile(
 )
 
 
-def _file_cls(file: Path) -> type[model.base.Endpoint]:
+def _file_cls(file: Path) -> type[model.Endpoint]:
     """Determine the endpoint based on the filename."""
-    file_mapping: dict[re.Pattern, type[model.base.Endpoint]] = {
+    file_mapping: dict[re.Pattern, type[model.Endpoint]] = {
         RE_CREDIT_TYPE: model.CreditType,
         RE_EARNING_CODE: model.EarningCode,
         RE_EARNING_GROUP: model.EarningGroup,
@@ -65,18 +65,18 @@ def _file_cls(file: Path) -> type[model.base.Endpoint]:
 async def deploy_from_path(
     client: Tenant,
     path: Path,
-) -> dict[Path, list[model.base.Resource] | list[model.Pipeline]]:
+) -> dict[Path, list[model.Resource] | list[model.Pipeline]]:
     """Deploy."""
     LOGGER.debug('Deploy %s', path)
     # This is to make sure we recognize each file before we attempt to deploy.
-    files_with_cls: list[tuple[Path, type[model.base.Endpoint]]] = [
+    files_with_cls: list[tuple[Path, type[model.Endpoint]]] = [
         (file, _file_cls(file))
         for file in sorted(path.iterdir(), key=lambda x: x.name)
         if file.is_file()
     ]
-    results: dict[Path, list[model.base.Resource] | list[model.Pipeline]] = {}
+    results: dict[Path, list[model.Resource] | list[model.Pipeline]] = {}
     for file, resource_cls in files_with_cls:
-        if issubclass(resource_cls, model.base.Resource):  # pylint: disable=protected-access
+        if issubclass(resource_cls, model.Resource):  # pylint: disable=protected-access
             results[file] = await deploy_resources_from_file(client, file, resource_cls)
         if resource_cls is model.XMLImport:
             result: model.Pipeline = await deploy_xml(client, file)
@@ -89,11 +89,11 @@ async def deploy_from_path(
 async def deploy_resources_from_file(
     client: Tenant,
     file: Path,
-    resource_cls: type[model.base.Resource],
-) -> list[model.base.Resource]:
+    resource_cls: type[model.Resource],
+) -> list[model.Resource]:
     """Deploy file."""
     LOGGER.info('Deploy file: %s', file)
-    resources: list[model.base.Resource] = []
+    resources: list[model.Resource] = []
     with file.open(encoding='utf-8', newline='') as f_in:
         reader = csv.reader(f_in)
         next(reader)  # Skip header
@@ -107,21 +107,21 @@ async def deploy_resources_from_file(
 
 async def deploy_resource(
     client: Tenant,
-    resource: model.base.Resource,
-) -> model.base.Resource:
+    resource: model.Resource,
+) -> model.Resource:
     """Deploy resource."""
-    resource_cls: type[model.base.Resource] = resource.__class__
+    resource_cls: type[model.Resource] = resource.__class__
     LOGGER.debug('Deploy %s: %s', resource_cls.__name__, resource)
 
     try:
-        created: model.base.Resource = await retry(
+        created: model.Resource = await retry(
             client.create,
             resource,
             exceptions=SAPConnectionError,
         )
         LOGGER.info('%s created: %s', resource_cls.__name__, created)
     except SAPAlreadyExistsError:  # Resource exists, update instead
-        updated: model.base.Resource = await retry(
+        updated: model.Resource = await retry(
             client.update,
             resource,
             exceptions=SAPConnectionError,

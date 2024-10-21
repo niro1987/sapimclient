@@ -11,19 +11,18 @@ from aioresponses import aioresponses
 
 from sapimclient import Tenant, exceptions, model
 from sapimclient.const import HTTPMethod
-from sapimclient.model.base import Endpoint, Reference, Resource
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
-class MockResource(Resource):
+class MockResource(model.Resource):
     """MockResource resource."""
 
     attr_endpoint: ClassVar[str] = 'api/v2/eggs'
     attr_seq: ClassVar[str] = 'egg_seq'
     egg_seq: str | None = None
     name: str
-    ref: str | Reference | None = None
+    ref: str | model.Reference | None = None
 
 
 mock_url = re.compile(r'^.*api/v2/eggs.*$')
@@ -251,7 +250,7 @@ async def test_tenant_create_error_already_exists(
     Error data indicates resource already exists.
     """
 
-    class MockResource(Resource):
+    class MockResource(model.Resource):
         """MockResource resource."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/eggs'
@@ -297,7 +296,7 @@ async def test_tenant_create_error_missing_field(
     Error data indicates resource is missing a required field.
     """
 
-    class MockResource(Resource):
+    class MockResource(model.Resource):
         """MockResource resource."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/eggs'
@@ -332,7 +331,7 @@ async def test_tenant_create_error_unexpected(
     Error data does not mention any known error message.
     """
 
-    class MockResource(Resource):
+    class MockResource(model.Resource):
         """MockResource resource."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/eggs'
@@ -474,7 +473,7 @@ async def test_tenant_update_error_on_field(
     Error data indicates resource field has an error.
     """
 
-    class MockResource(Resource):
+    class MockResource(model.Resource):
         """MockResource resource."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/eggs'
@@ -514,7 +513,7 @@ async def test_tenant_update_error_unexpected(
     Error data does not mention any known error message.
     """
 
-    class MockResource(Resource):
+    class MockResource(model.Resource):
         """MockResource resource."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/eggs'
@@ -1066,7 +1065,7 @@ async def test_tenant_run_pipeline(
 ) -> None:
     """Test tenant run pipeline happy flow."""
 
-    class MockPipeline(Endpoint):
+    class MockPipeline(model.Endpoint):
         """Mock pipeline job."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
@@ -1106,7 +1105,7 @@ async def test_tenant_run_pipeline_error(
 ) -> None:
     """Test tenant run pipeline error."""
 
-    class MockPipeline(Endpoint):
+    class MockPipeline(model.Endpoint):
         """Mock pipeline job."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
@@ -1180,7 +1179,7 @@ async def test_tenant_cancel_pipeline(
 ) -> None:
     """Test tenant cancel pipeline happy flow."""
 
-    class MockPipeline(Resource):
+    class MockPipeline(model.Resource):
         """Mock pipeline."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
@@ -1213,7 +1212,7 @@ async def test_tenant_cancel_pipeline_error(
 ) -> None:
     """Test tenant cancel pipeline error."""
 
-    class MockPipeline(Resource):
+    class MockPipeline(model.Resource):
         """Mock pipeline."""
 
         attr_endpoint: ClassVar[str] = 'api/v2/pipelines'

@@ -33,7 +33,7 @@ period ``January 2024`` on the ``Main Monthly Calendar``.
    from aoihttp
    from sapimclient import Tenant, model
    from sapimclient.const import PipelineState, PipelineStatus
-   from sapimclient.model.base import Reference
+   from sapimclient.model import Reference
 
    async def run_comp_and_pay(
       client: Tenant,
