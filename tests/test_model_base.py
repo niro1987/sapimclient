@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import ClassVar
 
 import pytest
+from pydantic import AliasChoices, Field
 from pydantic_core import ValidationError
 
 from sapimclient.model import BusinessUnit, base as model_base
@@ -134,6 +135,28 @@ def test_resource() -> None:
     assert dummy_resource.seq == 'spam'
 
 
+def test_resource_alias_override() -> None:
+    """Test resource alias override."""
+
+    class DummyResource(model_base.Resource):
+        """Dummy model."""
+
+        dummy_code_id: str = Field(
+            validation_alias=AliasChoices('dummyCodeId', 'ID'),
+        )
+
+    dummy: DummyResource = DummyResource(dummyCodeId='spam')
+    assert dummy.dummy_code_id == 'spam'
+    dump: dict[str, str] = dummy.model_dump(by_alias=True, exclude_none=True)
+    assert dump == {'dummyCodeId': 'spam'}
+
+    dummy2: DummyResource = DummyResource(ID='eggs')
+    assert dummy2.dummy_code_id == 'eggs'
+    dump2: dict[str, str] = dummy2.model_dump(by_alias=True, exclude_none=True)
+    assert 'ID' not in dump2
+    assert dump == {'dummyCodeId': 'spam'}
+
+
 def test_reference() -> None:
     """Test Reference class."""
     assert issubclass(model_base.Reference, model_base.Expandable)
@@ -175,6 +198,21 @@ def test_reference() -> None:
     assert str(dummy_model.business_units[0]) == '456'
     assert dummy_model.business_units[0].object_type is BusinessUnit
     assert dummy_model.business_units[0].logical_keys['name'] == 'eggs'
+
+
+def test_reference_string() -> None:
+    """Test reference field as string."""
+
+    class DummyResource(model_base.Resource):
+        """Dummy model."""
+
+        id: str
+        reference: str | model_base.Reference
+
+    dummy: DummyResource = DummyResource(id='spamm', reference='eggs')
+    assert dummy.id == 'spamm'
+    assert isinstance(dummy.reference, str)
+    assert dummy.reference == 'eggs'
 
 
 def test_reference_unknown_resource() -> None:
