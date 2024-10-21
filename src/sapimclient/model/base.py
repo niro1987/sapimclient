@@ -318,7 +318,7 @@ class Reference(Expandable):
         if not (obj := getattr(module, value, None)):
             msg = f'Could not find object type: {value}'
             raise ValueError(msg)
-        if issubclass(obj, Resource):
+        if issubclass(obj, Resource) and obj is not Resource:
             return obj
         msg = f'Object type is not a subclass of Resource: {value}'
         raise ValueError(msg)

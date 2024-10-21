@@ -1,5 +1,11 @@
 """Data models for Python SAP Incentive Management Client."""
 
+from .base import (
+    Endpoint,
+    Reference,
+    Resource,
+    Value,
+)
 from .data_type import (
     CreditType,
     EarningCode,
@@ -106,9 +112,9 @@ __all__ = [
     'BusinessUnit',
     'Calendar',
     'Category',
-    'CFixedValue',
     'CategoryClassifier',
     'CategoryTree',
+    'CFixedValue',
     'Classify',
     'CleanupDefferedResults',
     'Commission',
@@ -123,6 +129,7 @@ __all__ = [
     'EarningCode',
     'EarningGroup',
     'EarningGroupCode',
+    'Endpoint',
     'EventType',
     'Finalize',
     'FixedValue',
@@ -161,6 +168,7 @@ __all__ = [
     'RateTable',
     'RateTableVariable',
     'Reason',
+    'Reference',
     'RelationalMDLT',
     'ReportsGeneration',
     'ResetFromAllocate',
@@ -168,6 +176,7 @@ __all__ = [
     'ResetFromPay',
     'ResetFromReward',
     'ResetFromValidate',
+    'Resource',
     'Reward',
     'Rule',
     'SalesOrder',
@@ -182,12 +191,13 @@ __all__ = [
     'TransferIfAllValid',
     'UndoFinalize',
     'UndoPost',
+    'UnitType',
     'UpdateAnalytics',
     'User',
-    'UnitType',
     'Validate',
     'ValidateAndTransfer',
     'ValidateAndTransferIfAllValid',
+    'Value',
     'Variable',
     'XMLImport',
 ]
