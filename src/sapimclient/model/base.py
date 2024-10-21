@@ -80,12 +80,9 @@ class _BaseModel(BaseModel):
         def _process_type(
             field_name: str,
             field_info: FieldInfo,
-            field_type: type | None,
+            field_type: type,
         ) -> None:
             """Recursively process types."""
-            if field_type is None:
-                return
-
             if get_origin(field_type) is None:
                 if isclass(field_type) and issubclass(field_type, typed):
                     fields[field_name] = field_info
@@ -97,7 +94,11 @@ class _BaseModel(BaseModel):
 
         # Iterate through each field and process its type
         for field_name, field_info in model_fields.items():
-            _process_type(field_name, field_info, field_info.annotation)
+            _process_type(
+                field_name=field_name,
+                field_info=field_info,
+                field_type=field_info.annotation,  # type: ignore[arg-type]
+            )
 
         return fields
 
