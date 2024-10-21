@@ -32,6 +32,8 @@ def list_endpoint_cls() -> Generator[type[model.base.Endpoint], None, None]:
             isclass(obj)
             and issubclass(obj, model.base.Endpoint)
             and not obj.__name__.startswith('_')
+            and obj is not model.base.Endpoint
+            and obj is not model.base.Resource
         ):
             yield obj
 
@@ -56,6 +58,7 @@ def list_resource_cls() -> Generator[type[model.base.Resource], None, None]:
             isclass(obj)
             and issubclass(obj, model.base.Resource)
             and not obj.__name__.startswith('_')
+            and obj is not model.base.Resource
         ):
             yield obj
 
