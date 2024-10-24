@@ -10,4 +10,7 @@ RUN pipx uninstall pydocstyle \
 # Install Python dependencies from requirements
 WORKDIR /usr/src
 COPY . .
-RUN pip install -r requirements.txt -r .devcontainer/requirements-dev.txt
+RUN pip install -r requirements.txt
+RUN pip install -r docs/requirements.txt
+RUN pip install -r tests/requirements.txt
+RUN pip install -r .devcontainer/requirements.txt

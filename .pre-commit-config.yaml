@@ -67,9 +67,6 @@ repos:
       - id: trailing-whitespace
       - id: check-json
         exclude: (.vscode|.devcontainer)
-      - id: pretty-format-json
-        args:
-          - --autofix
       - id: check-xml
       - id: check-toml
       - id: check-yaml
