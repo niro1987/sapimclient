@@ -11,6 +11,7 @@ from sapimclient import Tenant, model
 from sapimclient.const import PipelineState, PipelineStatus
 from sapimclient.exceptions import SAPAlreadyExistsError, SAPConnectionError
 from sapimclient.helpers import retry
+from sapimclient.model.data_type import _DataType
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -44,9 +45,9 @@ RE_XML: Final[re.Pattern] = re.compile(
 )
 
 
-def _file_cls(file: Path) -> type[model.Endpoint]:
+def _file_cls(file: Path) -> type[_DataType | model.XMLImport]:
     """Determine the endpoint based on the filename."""
-    file_mapping: dict[re.Pattern, type[model.Endpoint]] = {
+    file_mapping: dict[re.Pattern, type[_DataType | model.XMLImport]] = {
         RE_CREDIT_TYPE: model.CreditType,
         RE_EARNING_CODE: model.EarningCode,
         RE_EARNING_GROUP: model.EarningGroup,
@@ -65,19 +66,19 @@ def _file_cls(file: Path) -> type[model.Endpoint]:
 async def deploy_from_path(
     client: Tenant,
     path: Path,
-) -> dict[Path, list[model.Resource] | list[model.Pipeline]]:
+) -> dict[Path, list[_DataType] | list[model.Pipeline]]:
     """Deploy."""
     LOGGER.debug('Deploy %s', path)
     # This is to make sure we recognize each file before we attempt to deploy.
-    files_with_cls: list[tuple[Path, type[model.Endpoint]]] = [
+    files_with_cls: list[tuple[Path, type[_DataType | model.XMLImport]]] = [
         (file, _file_cls(file))
         for file in sorted(path.iterdir(), key=lambda x: x.name)
         if file.is_file()
     ]
-    results: dict[Path, list[model.Resource] | list[model.Pipeline]] = {}
+    results: dict[Path, list[_DataType] | list[model.Pipeline]] = {}
     for file, resource_cls in files_with_cls:
-        if issubclass(resource_cls, model.Resource):
-            results[file] = await deploy_resources_from_file(client, file, resource_cls)
+        if issubclass(resource_cls, _DataType):
+            results[file] = await deploy_datatypes_from_file(client, file, resource_cls)
         if resource_cls is model.XMLImport:
             result: model.Pipeline = await deploy_xml(client, file)
             if result.status != PipelineStatus.Successful:
@@ -86,14 +87,14 @@ async def deploy_from_path(
     return results
 
 
-async def deploy_resources_from_file(
+async def deploy_datatypes_from_file(
     client: Tenant,
     file: Path,
-    resource_cls: type[model.Resource],
-) -> list[model.Resource]:
+    resource_cls: type[_DataType],
+) -> list[_DataType]:
     """Deploy file."""
     LOGGER.info('Deploy file: %s', file)
-    resources: list[model.Resource] = []
+    resources: list[_DataType] = []
     with file.open(encoding='utf-8', newline='') as f_in:
         reader = csv.reader(f_in)
         next(reader)  # Skip header
@@ -101,27 +102,27 @@ async def deploy_resources_from_file(
             resource_cls(id=row[0], description=row[1] if row[1] else None)
             for row in reader
         )
-    tasks = [deploy_resource(client, resource) for resource in resources]
+    tasks = [deploy_datatype(client, resource) for resource in resources]
     return await asyncio.gather(*tasks)
 
 
-async def deploy_resource(
+async def deploy_datatype(
     client: Tenant,
-    resource: model.Resource,
-) -> model.Resource:
-    """Deploy resource."""
-    resource_cls: type[model.Resource] = resource.__class__
+    resource: _DataType,
+) -> _DataType:
+    """Deploy DataType."""
+    resource_cls: type[_DataType] = resource.__class__
     LOGGER.debug('Deploy %s: %s', resource_cls.__name__, resource)
 
     try:
-        created: model.Resource = await retry(
+        created: _DataType = await retry(
             client.create,
             resource,
             exceptions=SAPConnectionError,
         )
         LOGGER.info('%s created: %s', resource_cls.__name__, created)
-    except SAPAlreadyExistsError:  # Resource exists, update instead
-        updated: model.Resource = await retry(
+    except SAPAlreadyExistsError:  # DataType exists, update instead
+        updated: _DataType = await retry(
             client.update,
             resource,
             exceptions=SAPConnectionError,
@@ -136,8 +137,8 @@ async def deploy_xml(
     client: Tenant,
     file: Path,
 ) -> model.Pipeline:
-    """Deploy XML Plan data."""
-    LOGGER.info('Deploy Plan data: %s', file)
+    """Deploy XML data."""
+    LOGGER.info('Deploy XML data: %s', file)
 
     job: model.XMLImport = model.XMLImport(
         xml_file_name=file.name,
@@ -160,5 +161,5 @@ async def deploy_xml(
     if result.status != PipelineStatus.Successful:
         LOGGER.error('XML Import failed (errors: %s)!', result.num_errors)
     else:
-        LOGGER.info('Plan data imported: %s', file)
+        LOGGER.info('XML data imported: %s', file)
     return result

@@ -11,23 +11,24 @@ from pytest_mock import MockerFixture
 
 from sapimclient import Tenant, const, deploy, model
 from sapimclient.exceptions import SAPAlreadyExistsError
+from sapimclient.model.data_type import _DataType
 
 LOGGER = logging.getLogger(__name__)
 
 
-def mockeffect_resources_from_file(
+def mockeffect_datatypes_from_file(
     client: Tenant,  # noqa: ARG001
     file: Path,  # noqa: ARG001
-    resource_cls: type[model.Resource],
-) -> list[model.Resource]:
-    """Mocked side effect of deploy_resources_from_file."""
+    resource_cls: type[_DataType],
+) -> list[_DataType]:
+    """Mocked side effect of deploy_datatypes_from_file."""
     return [
         resource_cls(data_type_seq='123', id='Spam'),
         resource_cls(data_type_seq='456', id='Eggs', description='Bacon'),
     ]
 
 
-def mockeffect_xml(*args: Any, **kwargs: Any) -> model.Pipeline:  # noqa: ARG001
+def mockeffect_pipeline(*args: Any, **kwargs: Any) -> model.Pipeline:  # noqa: ARG001
     """Mocked side effect of deploy_xml."""
     return model.Pipeline(
         pipeline_run_seq='123',
@@ -56,7 +57,7 @@ def test_file_class(
     dir_deploy: Path,
     tmp_path: Path,
     src_file: str,
-    resource_cls: type[model.Resource],
+    resource_cls: type[_DataType | model.XMLImport],
 ) -> None:
     """Test file class function."""
     # Setup temporary directory
@@ -100,12 +101,12 @@ async def test_deploy_from_path(
 
     # # Setup mocker
     mock_file = mocker.patch(
-        target='sapimclient.deploy.deploy_resources_from_file',
-        side_effect=mockeffect_resources_from_file,
+        target='sapimclient.deploy.deploy_datatypes_from_file',
+        side_effect=mockeffect_datatypes_from_file,
     )
     mock_xml = mocker.patch(
         target='sapimclient.deploy.deploy_xml',
-        side_effect=mockeffect_xml,
+        side_effect=mockeffect_pipeline,
     )
 
     # Test all files processed
@@ -153,15 +154,15 @@ async def test_deploy_from_path_pipeline_failure(
         ('Reason Code.txt', model.Reason),
     ],
 )
-async def test_deploy_resources_from_file(  # noqa: PLR0913
+async def test_deploy_datatypes_from_file(  # noqa: PLR0913
     dir_deploy: Path,
     tmp_path: Path,
     mocker: MockerFixture,
     tenant: Tenant,
     src_file: str,
-    resource_cls: type[model.Resource],
+    resource_cls: type[_DataType],
 ) -> None:
-    """Test the deploy_resources_from_file function."""
+    """Test the deploy_datatypes_from_file function."""
     # Setup temporary directory
     tmp_file = tmp_path / src_file
     shutil.copy(dir_deploy / src_file, tmp_file)
@@ -169,18 +170,18 @@ async def test_deploy_resources_from_file(  # noqa: PLR0913
     # Setup mocker
     def mockeffect(
         client: Tenant,  # noqa: ARG001
-        resource: model.Resource,
-    ) -> model.Resource:
-        """Mockeffect of deploy_resource."""
+        resource: _DataType,
+    ) -> _DataType:
+        """Mockeffect of deploy_datatype."""
         return resource
 
     mock = mocker.patch(
-        target='sapimclient.deploy.deploy_resource',
+        target='sapimclient.deploy.deploy_datatype',
         side_effect=mockeffect,
     )
 
     # Test resources processed
-    results = await deploy.deploy_resources_from_file(tenant, tmp_file, resource_cls)
+    results = await deploy.deploy_datatypes_from_file(tenant, tmp_file, resource_cls)
     assert len(results) == 2
     assert mock.call_count == 2
     assert all(isinstance(result, resource_cls) for result in results)
@@ -197,18 +198,18 @@ async def test_deploy_resources_from_file(  # noqa: PLR0913
         model.Reason,
     ],
 )
-async def test_deploy_resource_created(
+async def test_deploy_datatype_created(
     tenant: Tenant,
     mocker: MockerFixture,
-    resource_cls: type[model.Resource],
+    resource_cls: type[_DataType],
 ) -> None:
-    """Test the deploy_resource function."""
+    """Test the deploy_datatype function."""
 
     # Setup mocker
     def mockeffect(
-        resource: model.Resource,
-    ) -> model.Resource:
-        """Mockeffect of deploy_resource."""
+        resource: _DataType,
+    ) -> _DataType:
+        """Mockeffect of deploy_datatype."""
         return resource
 
     mock = mocker.patch(
@@ -217,7 +218,7 @@ async def test_deploy_resource_created(
     )
 
     resource = resource_cls(id='spam', description='eggs')
-    result = await deploy.deploy_resource(tenant, resource)
+    result = await deploy.deploy_datatype(tenant, resource)
     assert result == resource
     mock.assert_called_once_with(resource)
 
@@ -233,18 +234,18 @@ async def test_deploy_resource_created(
         model.Reason,
     ],
 )
-async def test_deploy_resource_updated(
+async def test_deploy_datatype_updated(
     tenant: Tenant,
     mocker: MockerFixture,
-    resource_cls: type[model.Resource],
+    resource_cls: type[_DataType],
 ) -> None:
-    """Test the deploy_resource function."""
+    """Test the deploy_datatype function."""
 
     # Setup mocker
     def mockeffect(
-        resource: model.Resource,
-    ) -> model.Resource:
-        """Mockeffect of deploy_resource."""
+        resource: _DataType,
+    ) -> _DataType:
+        """Mockeffect of deploy_datatype."""
         return resource
 
     mock_create = mocker.patch(
@@ -257,7 +258,7 @@ async def test_deploy_resource_updated(
     )
 
     resource = resource_cls(id='spam', description='eggs')
-    result = await deploy.deploy_resource(tenant, resource)
+    result = await deploy.deploy_datatype(tenant, resource)
     assert result == resource
     mock_create.assert_called_once_with(resource)
     mock_update.assert_called_once_with(resource)
@@ -278,7 +279,7 @@ async def test_deploy_xml(
     # Setup mocker
     mock = mocker.patch(
         target='sapimclient.client.Tenant.run_pipeline',
-        return_value=mockeffect_xml(),
+        return_value=mockeffect_pipeline(),
     )
 
     result = await deploy.deploy_xml(tenant, tmp_file)
@@ -301,7 +302,7 @@ async def test_deploy_xml_failure(
     shutil.copy(src_file, tmp_file)
 
     # Setup mocker
-    pipeline: model.Pipeline = mockeffect_xml()
+    pipeline: model.Pipeline = mockeffect_pipeline()
     pipeline.status = const.PipelineStatus.Failed
     pipeline.num_errors = 1
     mock = mocker.patch(
@@ -329,16 +330,17 @@ async def test_deploy_xml_sleep(
     shutil.copy(src_file, tmp_file)
 
     # Setup mocker
-    pipeline_running = mockeffect_xml()
+    pipeline_running = mockeffect_pipeline()
     pipeline_running.state = const.PipelineState.Running
 
+    mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
     mock_running = mocker.patch(
         target='sapimclient.client.Tenant.run_pipeline',
         return_value=pipeline_running,
     )
     mock_done = mocker.patch(
         target='sapimclient.client.Tenant.read',
-        return_value=mockeffect_xml(),
+        return_value=mockeffect_pipeline(),
     )
 
     result = await deploy.deploy_xml(tenant, tmp_file)
@@ -346,4 +348,5 @@ async def test_deploy_xml_sleep(
     assert result.state == const.PipelineState.Done
     assert result.status == const.PipelineStatus.Successful
     assert mock_running.call_count == 1
+    assert mock_sleep.call_count == 1
     assert mock_done.call_count == 1
