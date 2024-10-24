@@ -76,7 +76,7 @@ async def deploy_from_path(
     ]
     results: dict[Path, list[model.Resource] | list[model.Pipeline]] = {}
     for file, resource_cls in files_with_cls:
-        if issubclass(resource_cls, model.Resource):  # pylint: disable=protected-access
+        if issubclass(resource_cls, model.Resource):
             results[file] = await deploy_resources_from_file(client, file, resource_cls)
         if resource_cls is model.XMLImport:
             result: model.Pipeline = await deploy_xml(client, file)

@@ -5,6 +5,7 @@
 import os
 from collections.abc import AsyncGenerator, Generator, Iterable
 from inspect import isclass
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -61,6 +62,12 @@ def list_resource_cls() -> Generator[type[model.Resource], None, None]:
             and obj is not model.Resource
         ):
             yield obj
+
+
+@pytest.fixture(name='dir_deploy')
+def fixture_deploy() -> Path:
+    """Yield the path to the deploy directory."""
+    return Path('tests/fixtures/deploy')
 
 
 @pytest.fixture(name='live_session', scope='session')

@@ -1,0 +1,3 @@
+"Credit Type ID","Description","Last Modified"
+"Spam",,"01/01/24 00:00"
+"Eggs","Bacon","01/01/24 00:00"
