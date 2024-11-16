@@ -9,3 +9,5 @@ docs/html/
 node_modules/
 .coverage
 *.http
+.ruff_cache
+.mypy_cache
