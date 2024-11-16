@@ -1,11 +1,10 @@
 """Helpers for Python SAP Incentive Management Client."""
 
-import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
-from datetime import date
-from typing import Any, Union
+from datetime import date, datetime
+from typing import Any, TypeVar
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -26,18 +25,20 @@ class LogicalOperator:
 
     _operator: str = field(init=False, repr=False)
     first: str
-    second: str | int | date
+    second: str | int | date | datetime | bool
 
     def __str__(self) -> str:
         """Return a string representation of the object."""
-        if isinstance(self.second, int):
-            second = f"{self.second}"
-        elif isinstance(self.second, date):
-            second = self.second.strftime("%Y-%m-%d")
+        if isinstance(self.second, bool):
+            second = str(self.second).lower()
+        elif isinstance(self.second, int):
+            second = f"'{self.second} integer'"
+        elif isinstance(self.second, date | datetime):
+            second = self.second.isoformat()
         else:  # str
             second = f"'{self.second}'"
 
-        return f"{self.first} {self._operator} {second}"
+        return f'{self.first} {self._operator} {second}'
 
 
 class Equals(LogicalOperator):
@@ -47,7 +48,7 @@ class Equals(LogicalOperator):
     Supports `null` operator, for example: `Equals('name', 'null')`.
     """
 
-    _operator: str = "eq"
+    _operator: str = 'eq'
 
 
 class NotEquals(LogicalOperator):
@@ -57,31 +58,31 @@ class NotEquals(LogicalOperator):
     Supports `null` operator, for example: `NotEquals('name', 'null')`.
     """
 
-    _operator: str = "ne"
+    _operator: str = 'ne'
 
 
 class GreaterThen(LogicalOperator):
     """Greater then."""
 
-    _operator: str = "gt"
+    _operator: str = 'gt'
 
 
 class GreaterThenOrEqual(LogicalOperator):
     """Greater then or equals."""
 
-    _operator: str = "ge"
+    _operator: str = 'ge'
 
 
 class LesserThen(LogicalOperator):
     """Lesser then."""
 
-    _operator: str = "lt"
+    _operator: str = 'lt'
 
 
 class LesserThenOrEqual(LogicalOperator):
     """Lesser then or equals."""
 
-    _operator: str = "le"
+    _operator: str = 'le'
 
 
 @dataclass(init=False)
@@ -96,7 +97,7 @@ class BooleanOperator:
 
     _operator: str = field(init=False, repr=False)
 
-    def __init__(self, *conditions: Union[LogicalOperator, "BooleanOperator"]):
+    def __init__(self, *conditions: 'LogicalOperator | BooleanOperator') -> None:
         """Initialize the BooleanExpression with conditions.
 
         Attributes:
@@ -109,44 +110,46 @@ class BooleanOperator:
             and type(m) not in (LogicalOperator, BooleanOperator)
             for m in conditions
         ):
-            raise ValueError(
-                "conditions must be instance of Boolean- or LogicalOperator"
-            )
+            msg = 'All conditions must be instance of Boolean- or LogicalOperator'
+            raise ValueError(msg)
         self.conditions = conditions
 
     def __str__(self) -> str:
         """Return a string representation of the object."""
         if not self.conditions:
-            return ""
-        text: str = f" {self._operator} ".join(str(m) for m in self.conditions)
-        return f"({text})" if len(self.conditions) > 1 else text
+            return ''
+        text: str = f' {self._operator} '.join(str(m) for m in self.conditions)
+        return f'({text})' if len(self.conditions) > 1 else text
 
 
 class And(BooleanOperator):
     """All conditions must be true."""
 
-    _operator: str = "and"
+    _operator: str = 'and'
 
 
 class Or(BooleanOperator):
     """Any condition must be true."""
 
-    _operator: str = "or"
+    _operator: str = 'or'
+
+
+T = TypeVar('T')
 
 
 class AsyncLimitedGenerator:
     """Async generator to limit the number of yielded items."""
 
-    def __init__(self, iterable, limit: int):
+    def __init__(self, iterable: AsyncIterator[T], limit: int) -> None:
         """Initialize the async iterator."""
         self.iterable = iterable
         self.limit = limit
 
-    def __aiter__(self):
+    def __aiter__(self) -> AsyncIterator[T]:
         """Return the async iterator."""
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> T:
         """Return the next item in the async iterator."""
         if self.limit == 0:
             raise StopAsyncIteration
@@ -156,23 +159,20 @@ class AsyncLimitedGenerator:
 
 async def retry(
     coroutine_function: Callable,
-    *args,
-    exceptions: type[BaseException] | tuple[type[BaseException], ...] | None = None,
-    retries: int = 3,
-    delay: float = 3.0,
-    **kwargs,
+    *args: Any,
+    exceptions: type[BaseException] | tuple[type[BaseException], ...],
+    max_attempts: int = 3,
+    **kwargs: Any,
 ) -> Any:
     """Retry a coroutine function a specified number of times."""
-    if exceptions is not None and not isinstance(exceptions, tuple):
+    if not isinstance(exceptions, tuple):
         exceptions = (exceptions,)
 
-    for attempt in range(retries):
+    for attempt in range(max_attempts):
         try:
             return await coroutine_function(*args, **kwargs)
-        except Exception as err:  # pylint: disable=broad-except
-            if exceptions is not None and not isinstance(err, exceptions):
+        except exceptions as err:
+            LOGGER.debug('Failed attempt %s: %s', attempt + 1, err)
+            if attempt >= max_attempts - 1:
                 raise
-            LOGGER.debug("Failed attempt %s: %s", attempt + 1, err)
-            if attempt >= retries - 1:
-                raise
-            await asyncio.sleep(delay)
+    return None

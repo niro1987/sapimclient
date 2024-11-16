@@ -6,25 +6,6 @@
   },
   "customizations": {
     "vscode": {
-      "settings": {
-        "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.testing.pytestEnabled": false,
-        "python.testing.unittestEnabled": false,
-        "python.testing.pytestArgs": ["--no-cov"],
-        "editor.formatOnPaste": false,
-        "editor.formatOnSave": true,
-        "editor.formatOnType": true,
-        "files.trimTrailingWhitespace": true,
-        "terminal.integrated.profiles.linux": {
-          "zsh": {
-            "path": "/usr/bin/zsh"
-          }
-        },
-        "terminal.integrated.defaultProfile.linux": "zsh",
-        "[python]": {
-          "editor.defaultFormatter": "charliermarsh.ruff"
-        }
-      },
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
@@ -38,9 +19,28 @@
         "eamodio.gitlens",
         "tamasfe.even-better-toml",
         "github.vscode-github-actions"
-      ]
+      ],
+      "settings": {
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "editor.formatOnPaste": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "files.trimTrailingWhitespace": true,
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestArgs": ["--no-cov"],
+        "python.testing.pytestEnabled": false,
+        "python.testing.unittestEnabled": false,
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/usr/bin/zsh"
+          }
+        }
+      }
     }
   },
   "postCreateCommand": "git config --global --add safe.directory /workspaces/sapimclient && pre-commit install --install-hooks",
-  "postStartCommand": "pip install -e .[dev]"
+  "postStartCommand": "pip install -e ."
 }
