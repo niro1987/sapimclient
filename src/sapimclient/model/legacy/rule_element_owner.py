@@ -1,19 +1,17 @@
 """Pydantic models for Rule Element Owner Resources."""
+# pylint: disable=duplicate-code
 
 from datetime import datetime
 from typing import ClassVar
 
 from pydantic import Field
 
-from .base import (
-    Assignment,
-    Generic16Mixin,
-    Reference,
-    Resource,
-)
+from sapimclient.model.base import Assignment, Generic16Mixin
+
+from .base import LegacyResource, Reference
 
 
-class _RuleElementOwner(Resource):
+class _RuleElementOwner(LegacyResource):
     """Base class for Rule Element Owner resources.
 
     TODO: ``variable_assignments`` should be ``Reference``?
@@ -59,7 +57,7 @@ class Plan(_RuleElementOwner):
     TODO: is ``variable_assignments`` expandable?
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/plans'
+    attr_endpoint: ClassVar[str] = '/v2/plans'
     calendar: str | Reference
 
 
@@ -70,7 +68,7 @@ class Position(_RuleElementOwner, Generic16Mixin):
     TODO: ``processing_unit`` should be ``Reference``?
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/positions'
+    attr_endpoint: ClassVar[str] = '/v2/positions'
     payee: str | Reference | None = None
     plan: str | Reference | None = None
     title: str | Reference | None = None
@@ -87,5 +85,5 @@ class Position(_RuleElementOwner, Generic16Mixin):
 class Title(_RuleElementOwner, Generic16Mixin):
     """Title."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/titles'
+    attr_endpoint: ClassVar[str] = '/v2/titles'
     plan: str | Reference | None = None

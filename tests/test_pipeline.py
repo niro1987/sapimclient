@@ -7,8 +7,9 @@ from typing import TypeVar
 import pytest
 from pydantic import ValidationError
 
-from sapimclient import Tenant, const, helpers, model
-from sapimclient.model.pipeline import STAGETABLES, _ImportJob, _PipelineRunJob
+from sapimclient import LegacyTenant, const, helpers
+from sapimclient.model import legacy
+from sapimclient.model.legacy.pipeline import STAGETABLES, _ImportJob, _PipelineRunJob
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=_PipelineRunJob)
@@ -20,7 +21,7 @@ T = TypeVar('T', bound=_PipelineRunJob)
 )
 def test_purge_stage_tables(module: str) -> None:
     """Test stage_tables property for Purge pipeline."""
-    job = model.Purge(
+    job = legacy.Purge(
         batch_name='spam',
         module=module,
     )
@@ -146,10 +147,10 @@ def test_pipeline_run_mode_validator() -> None:
 
 @pytest.fixture(name='cleanup', scope='session')
 async def fixture_delete_pipeline(
-    live_tenant: Tenant,
-) -> AsyncGenerator[list[model.Pipeline], None]:
+    live_tenant: LegacyTenant,
+) -> AsyncGenerator[list[legacy.Pipeline], None]:
     """Fixture to delete the created pipeline."""
-    pipelines: list[model.Pipeline] = []
+    pipelines: list[legacy.Pipeline] = []
     yield pipelines
 
     for pipeline in pipelines:
@@ -165,9 +166,9 @@ async def fixture_delete_pipeline(
 
 
 @pytest.fixture(name='calendar', scope='session')
-async def fixture_calendar(live_tenant: Tenant) -> model.Calendar:
+async def fixture_calendar(live_tenant: LegacyTenant) -> legacy.Calendar:
     """Fixture to return first calendar instance."""
-    if not (calendar := await live_tenant.read_first(model.Calendar)):
+    if not (calendar := await live_tenant.read_first(legacy.Calendar)):
         pytest.skip('No calendar returned from tenant.')
     assert calendar.seq is not None, 'calendar.seq invalid.'
 
@@ -177,13 +178,13 @@ async def fixture_calendar(live_tenant: Tenant) -> model.Calendar:
 
 @pytest.fixture(name='period', scope='session')
 async def fixture_period(
-    live_tenant: Tenant,
-    calendar: model.Calendar,
-) -> model.Period:
+    live_tenant: LegacyTenant,
+    calendar: legacy.Calendar,
+) -> legacy.Period:
     """Fixture to return first calendar period instance."""
     if not (
         period := await live_tenant.read_first(
-            model.Period,
+            legacy.Period,
             filters=helpers.And(
                 helpers.Equals('calendar', str(calendar.seq)),
                 helpers.Equals('periodType', str(calendar.minor_period_type)),
@@ -201,37 +202,37 @@ async def fixture_period(
 @pytest.mark.parametrize(
     'pipeline_job',
     [
-        model.Classify,
-        model.Allocate,
-        model.Reward,
-        model.Pay,
-        model.Summarize,
-        model.Compensate,
-        model.CompensateAndPay,
-        model.ResetFromClassify,
-        model.ResetFromAllocate,
-        model.ResetFromReward,
-        model.ResetFromPay,
-        model.Post,
-        model.Finalize,
-        model.UndoPost,
-        model.UndoFinalize,
-        model.CleanupDefferedResults,
-        model.UpdateAnalytics,
+        legacy.Classify,
+        legacy.Allocate,
+        legacy.Reward,
+        legacy.Pay,
+        legacy.Summarize,
+        legacy.Compensate,
+        legacy.CompensateAndPay,
+        legacy.ResetFromClassify,
+        legacy.ResetFromAllocate,
+        legacy.ResetFromReward,
+        legacy.ResetFromPay,
+        legacy.Post,
+        legacy.Finalize,
+        legacy.UndoPost,
+        legacy.UndoFinalize,
+        legacy.CleanupDefferedResults,
+        legacy.UpdateAnalytics,
     ],
 )
 async def test_pipelinerun(
-    live_tenant: Tenant,
+    live_tenant: LegacyTenant,
     pipeline_job: type[T],
-    cleanup: list[model.Pipeline],
-    period: model.Period,
+    cleanup: list[legacy.Pipeline],
+    period: legacy.Period,
 ) -> None:
     """Test running a pipeline on a calendar period."""
     job: T = pipeline_job(  # type: ignore[call-arg]
         calendar_seq=str(period.calendar),
         period_seq=period.period_seq,
     )
-    result: model.Pipeline = await live_tenant.run_pipeline(job)
+    result: legacy.Pipeline = await live_tenant.run_pipeline(job)
     LOGGER.info(result)
     assert result.pipeline_run_seq is not None
     cleanup.append(result)
@@ -242,16 +243,16 @@ async def test_pipelinerun(
 
 @pytest.mark.skip('Runs on live tenant')
 async def test_xmlimport(
-    live_tenant: Tenant,
-    cleanup: list[model.Pipeline],
+    live_tenant: LegacyTenant,
+    cleanup: list[legacy.Pipeline],
 ) -> None:
     """Test running an XML import."""
-    job = model.XMLImport(
+    job = legacy.XMLImport(
         xml_file_name='test.xml',
         xml_file_content='<xml></xml>',
         update_existing_objects=True,
     )
-    result: model.Pipeline = await live_tenant.run_pipeline(job)
+    result: legacy.Pipeline = await live_tenant.run_pipeline(job)
     LOGGER.info(result)
     assert result.pipeline_run_seq is not None
     cleanup.append(result)
@@ -263,27 +264,27 @@ async def test_xmlimport(
 @pytest.mark.parametrize(
     'pipeline_job',
     [
-        model.Validate,
-        model.Transfer,
-        model.ValidateAndTransfer,
-        model.ValidateAndTransferIfAllValid,
-        model.TransferIfAllValid,
+        legacy.Validate,
+        legacy.Transfer,
+        legacy.ValidateAndTransfer,
+        legacy.ValidateAndTransferIfAllValid,
+        legacy.TransferIfAllValid,
     ],
 )
 async def test_import(
-    live_tenant: Tenant,
-    pipeline_job: type[model.pipeline._ImportJob],
-    cleanup: list[model.Pipeline],
-    calendar: model.Calendar,
+    live_tenant: LegacyTenant,
+    pipeline_job: type[legacy.pipeline._ImportJob],
+    cleanup: list[legacy.Pipeline],
+    calendar: legacy.Calendar,
 ) -> None:
     """Test running an import job."""
     batch_name: str = 'test.txt'
-    job: model.pipeline._ImportJob = pipeline_job(  # type: ignore[call-arg]
+    job: legacy.pipeline._ImportJob = pipeline_job(  # type: ignore[call-arg]
         calendar_seq=calendar.seq,
         batch_name=batch_name,
         module=const.StageTables.TransactionalData,
     )
-    result: model.Pipeline = await live_tenant.run_pipeline(job)
+    result: legacy.Pipeline = await live_tenant.run_pipeline(job)
     LOGGER.info(result)
     assert result.pipeline_run_seq is not None
     cleanup.append(result)
@@ -294,16 +295,16 @@ async def test_import(
 
 @pytest.mark.skip('Runs on live tenant')
 async def test_purge(
-    live_tenant: Tenant,
-    cleanup: list[model.Pipeline],
+    live_tenant: LegacyTenant,
+    cleanup: list[legacy.Pipeline],
 ) -> None:
     """Test running a Purge pipeline."""
     batch_name: str = 'test.txt'
-    job = model.Purge(
+    job = legacy.Purge(
         batch_name=batch_name,
         module=const.StageTables.TransactionalData,
     )
-    result: model.Pipeline = await live_tenant.run_pipeline(job)
+    result: legacy.Pipeline = await live_tenant.run_pipeline(job)
     LOGGER.info(result)
     assert result.pipeline_run_seq is not None
     cleanup.append(result)
@@ -314,18 +315,18 @@ async def test_purge(
 
 @pytest.mark.skip('Runs on live tenant')
 async def test_resetfromvalidate(
-    live_tenant: Tenant,
-    cleanup: list[model.Pipeline],
-    period: model.Period,
+    live_tenant: LegacyTenant,
+    cleanup: list[legacy.Pipeline],
+    period: legacy.Period,
 ) -> None:
     """Test running a ResetFromValidate pipeline."""
     batch_name: str = 'test.txt'
-    job: model.ResetFromValidate = model.ResetFromValidate(
+    job: legacy.ResetFromValidate = legacy.ResetFromValidate(
         calendar_seq=str(period.calendar),
         period_seq=period.seq,
         batch_name=batch_name,
     )
-    result: model.Pipeline = await live_tenant.run_pipeline(job)
+    result: legacy.Pipeline = await live_tenant.run_pipeline(job)
     LOGGER.info(result)
     assert result.pipeline_run_seq is not None
     cleanup.append(result)
@@ -336,16 +337,16 @@ async def test_resetfromvalidate(
 
 @pytest.mark.skip('Runs on live tenant')
 async def test_resetfromvalidate_no_batch(
-    live_tenant: Tenant,
-    cleanup: list[model.Pipeline],
-    period: model.Period,
+    live_tenant: LegacyTenant,
+    cleanup: list[legacy.Pipeline],
+    period: legacy.Period,
 ) -> None:
     """Test running a ResetFromValidate pipeline without batch_name."""
-    job: model.ResetFromValidate = model.ResetFromValidate(
+    job: legacy.ResetFromValidate = legacy.ResetFromValidate(
         calendar_seq=str(period.calendar),
         period_seq=period.seq,
     )
-    result: model.Pipeline = await live_tenant.run_pipeline(job)
+    result: legacy.Pipeline = await live_tenant.run_pipeline(job)
     LOGGER.info(result)
     assert result.pipeline_run_seq is not None
     cleanup.append(result)

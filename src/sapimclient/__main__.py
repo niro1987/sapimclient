@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any
 
 import click
-from aiohttp import BasicAuth, ClientSession
 
-from sapimclient import Tenant, export as sap_export, helpers, model
+from sapimclient import LegacyTenant, auth, const, export as sap_export, helpers
 from sapimclient.deploy import deploy_from_path
 from sapimclient.exceptions import SAPNotFoundError
+from sapimclient.model import legacy
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -84,22 +84,21 @@ def setup_logging(
 
 
 @asynccontextmanager
-async def session_client(ctx: click.Context) -> AsyncGenerator[Tenant, None]:
-    """Yield a Session enabled Tenant."""
+async def session_client(ctx: click.Context) -> AsyncGenerator[LegacyTenant, None]:
+    """Yield a Tenant."""
     tenant: str = ctx.obj['TENANT']
     username: str = ctx.obj['USERNAME']
     password: str = ctx.obj['PASSWORD']
     ssl: bool = ctx.obj['SSL']
-    auth = BasicAuth(username, password)
-    async with ClientSession(auth=auth) as session:
-        client: Tenant = Tenant(
-            tenant=tenant,
-            session=session,
-            verify_ssl=ssl,
-            request_timeout=60,
-        )
+
+    const.VERIFY_SSL = ssl
+    authenticator = auth.BasicAuthenticator(username, password)
+    async with LegacyTenant(
+        tenant=tenant,
+        authenticator=authenticator,
+    ) as client:
         yield client
-        LOGGER.debug('Closed session.')
+    LOGGER.debug('Closed session.')
 
 
 async def async_deploy(path: Path, ctx: click.Context) -> None:
@@ -112,7 +111,7 @@ async def async_list_calendars(ctx: click.Context) -> list[str]:
     """Async list all calendars."""
     calendar_names: list[str] = []
     async with session_client(ctx) as client:
-        generator = client.read_all(model.Calendar)
+        generator = client.read_all(legacy.Calendar)
         calendar_names.extend([item.name async for item in generator])
     return calendar_names
 
@@ -131,8 +130,8 @@ async def async_list_periods(
     period_names: list[str] = []
 
     async with session_client(ctx) as client:
-        calendar_obj: model.Calendar | None = await client.read_first(
-            model.Calendar,
+        calendar_obj: legacy.Calendar | None = await client.read_first(
+            legacy.Calendar,
             filters=helpers.Equals('name', calendar_name),
         )
         if not calendar_obj:
@@ -144,7 +143,7 @@ async def async_list_periods(
         if period_name is not None:
             filters.append(helpers.Equals('name', period_name))
         generator = client.read_all(
-            model.Period,
+            legacy.Period,
             filters=helpers.And(*filters),
             order_by=['startDate desc'],
         )
@@ -269,6 +268,10 @@ def cli(  # pylint: disable=too-many-arguments
     prefixed with 'SAP_' or by passing them as options.
     For example: `export SAP_TENANT=CALD-DEV` is equivalent
     to passing `--tenant CALD-DEV`
+
+    \b
+    Please be aware that the Command Line Interface only supports
+    Legacy tenants at this time.
 
     """  # noqa: D301
     ctx.ensure_object(dict)

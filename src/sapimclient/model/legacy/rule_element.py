@@ -1,22 +1,23 @@
 """Pydantic models for Rule Element Resources."""
+# pylint: disable=duplicate-code
 
 from datetime import datetime
 from typing import ClassVar
 
 from pydantic import Field
 
-from .base import (
+from sapimclient.model.base import (
     Assignment,
     Generic16Mixin,
-    Reference,
-    Resource,
     RuleUsage,
     RuleUsageList,
     Value,
 )
 
+from .base import LegacyResource, Reference
 
-class _RuleElement(Resource):
+
+class _RuleElement(LegacyResource):
     """Base class for Rule Element resources.
 
     TODO: What does ``owning_element`` represent?
@@ -45,7 +46,7 @@ class _RuleElement(Resource):
 class Category(_RuleElement, Generic16Mixin):
     """Category."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/categories'
+    attr_endpoint: ClassVar[str] = '/v2/categories'
     owner: str | Reference
     parent: str | Reference | None = None
 
@@ -53,7 +54,7 @@ class Category(_RuleElement, Generic16Mixin):
 class FixedValue(_RuleElement):
     """Fixed Value."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/fixedValues'
+    attr_endpoint: ClassVar[str] = '/v2/fixedValues'
     value: Value | None = None
     fixed_value_type: str | Reference | None = None
     period_type: str | Reference | None = None
@@ -66,13 +67,13 @@ class CFixedValue(FixedValue):
 class Formula(_RuleElement):
     """Formula."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/formulas'
+    attr_endpoint: ClassVar[str] = '/v2/formulas'
 
 
 class FixedValueVariable(_RuleElement):
     """Fixed Value Variable."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/fixedValueVariables'
+    attr_endpoint: ClassVar[str] = '/v2/fixedValueVariables'
     default_element: str | Reference | None = None
     required_period_type: str | Reference | None = None
 
@@ -80,7 +81,7 @@ class FixedValueVariable(_RuleElement):
 class LookUpTableVariable(_RuleElement):
     """LookUp Table Variable."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/lookUpTableVariables'
+    attr_endpoint: ClassVar[str] = '/v2/lookUpTableVariables'
     default_element: str | Reference | None = None
     required_period_type: str | Reference | None = None
 
@@ -91,16 +92,13 @@ class RateTable(_RuleElement):
     TODO: Does this endpoint return ``default_element``?
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/rateTables'
-    default_element: str | Reference | None = None
-    required_period_type: str | Reference | None = None
-    return_unit_type: str | Reference | None = None
+    attr_endpoint: ClassVar[str] = '/v2/rateTables'
 
 
 class RateTableVariable(_RuleElement):
     """Rate Table Variable."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/rateTableVariables'
+    attr_endpoint: ClassVar[str] = '/v2/rateTableVariables'
     default_element: str | Reference | None = None
     required_period_type: str | Reference | None = None
 
@@ -115,7 +113,7 @@ class RelationalMDLT(_RuleElement):
     TODO: What does ``expression_type_counts`` represent?
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/relationalMDLTs'
+    attr_endpoint: ClassVar[str] = '/v2/relationalMDLTs'
     default_element: str | Reference | None = None
     required_period_type: str | Reference | None = None
     return_unit_type: str | Reference | None = None
@@ -128,13 +126,13 @@ class RelationalMDLT(_RuleElement):
 class Territory(_RuleElement):
     """Territory."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/territories'
+    attr_endpoint: ClassVar[str] = '/v2/territories'
 
 
 class TerritoryVariable(_RuleElement):
     """Territory Variable."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/territoryVariables'
+    attr_endpoint: ClassVar[str] = '/v2/territoryVariables'
     default_element: str | Reference | None = None
     required_period_type: str | Reference | None = None
 
@@ -145,6 +143,6 @@ class Variable(_RuleElement):
     TODO: What does ``default_element`` refer to?
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/variables'
+    attr_endpoint: ClassVar[str] = '/v2/variables'
     default_element: str | Reference | None = None
     required_period_type: str | Reference | None = None

@@ -72,6 +72,7 @@ ignore = [
     "TCH001", # Move first-party import into a type-checking block
     "TCH002", # Move third-party import into a type-checking block
     "TCH003", # Move standard lib import into a type-checking block
+    "TRY003", # Exception message in initializer
 ]
 
 [tool.ruff.lint.flake8-quotes]

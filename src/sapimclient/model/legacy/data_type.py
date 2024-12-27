@@ -1,15 +1,18 @@
-"""Pydantic models for Data Type Resources."""
+"""Pydantic models for Data Type resources (Oracle and HANA Tenants)."""
+# pylint: disable=duplicate-code
 
 from datetime import datetime
 from typing import ClassVar
 
 from pydantic import AliasChoices, Field
 
-from .base import Resource, ValueClass
+from sapimclient.model.base import ValueClass
+
+from .base import LegacyResource
 
 
-class _DataType(Resource):
-    """Base class for DataType resources."""
+class _DataType(LegacyResource):
+    """Base class for Legacy DataType resources."""
 
     attr_seq: ClassVar[str] = 'data_type_seq'
     data_type_seq: str | None = None
@@ -23,35 +26,35 @@ class _DataType(Resource):
 class CreditType(_DataType):
     """Credit Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/creditTypes'
+    attr_endpoint: ClassVar[str] = '/v2/creditTypes'
     credit_type_id: str = Field(validation_alias=AliasChoices('creditTypeId', 'id'))
 
 
 class EarningCode(_DataType):
     """Earning Code."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/earningCodes'
+    attr_endpoint: ClassVar[str] = '/v2/earningCodes'
     earning_code_id: str = Field(validation_alias=AliasChoices('earningCodeId', 'id'))
 
 
 class EarningGroup(_DataType):
     """Earning Group."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/earningGroups'
+    attr_endpoint: ClassVar[str] = '/v2/earningGroups'
     earning_group_id: str = Field(validation_alias=AliasChoices('earningGroupId', 'id'))
 
 
 class EventType(_DataType):
     """Event Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/eventTypes'
+    attr_endpoint: ClassVar[str] = '/v2/eventTypes'
     event_type_id: str = Field(validation_alias=AliasChoices('eventTypeId', 'id'))
 
 
 class FixedValueType(_DataType):
     """Fixed Value Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/fixedValueTypes'
+    attr_endpoint: ClassVar[str] = '/v2/fixedValueTypes'
     fixed_value_type_id: str = Field(
         validation_alias=AliasChoices('fixedValueTypeId', 'id'),
     )
@@ -60,21 +63,21 @@ class FixedValueType(_DataType):
 class PositionRelationType(_DataType):
     """Position Relation Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/positionRelationTypes'
+    attr_endpoint: ClassVar[str] = '/v2/positionRelationTypes'
     name: str
 
 
 class Reason(_DataType):
     """Reason."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/reasons'
+    attr_endpoint: ClassVar[str] = '/v2/reasons'
     reason_id: str = Field(validation_alias=AliasChoices('reasonId', 'id'))
 
 
 class StatusCode(_DataType):
     """Status Code."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/statusCodes'
+    attr_endpoint: ClassVar[str] = '/v2/statusCodes'
     status: str
     name: str | None = None
     type: str | None = None
@@ -84,7 +87,7 @@ class StatusCode(_DataType):
 class UnitType(_DataType):
     """Unit Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/unitTypes'
+    attr_endpoint: ClassVar[str] = '/v2/unitTypes'
     unit_type_seq: str
     name: str
     symbol: str | None = None

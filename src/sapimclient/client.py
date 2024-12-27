@@ -2,79 +2,98 @@
 
 import asyncio
 import logging
+from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass
-from typing import Any, TypeVar
+from dataclasses import dataclass, field
+from typing import Any, Final, Self, TypeVar
 
 from aiohttp import ClientError, ClientSession
 from pydantic.fields import FieldInfo
 from pydantic_core import ValidationError
 
-from sapimclient import exceptions, model
-from sapimclient.const import HTTPMethod
+from sapimclient import auth, const, exceptions
 from sapimclient.helpers import BooleanOperator, LogicalOperator, retry
+from sapimclient.model import Resource, legacy
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
-T = TypeVar('T', bound=model.Resource)
+T = TypeVar('T', bound=Resource)
 
-REQUEST_TIMEOUT: int = 60
-STATUS_NOT_MODIFIED: int = 304
-STATUS_BAD_REQUEST: int = 400
-STATUS_SERVER_ERROR: int = 500
-REQUIRED_STATUS: dict[str, tuple[int, ...]] = {
-    HTTPMethod.GET: (200,),
-    HTTPMethod.POST: (200, 201),
-    HTTPMethod.PUT: (200,),
-    HTTPMethod.DELETE: (200,),
-}
-ATTR_ERROR: str = '_ERROR_'
-ATTR_EXPAND: str = 'expand'
-ATTR_FILTER: str = '$filter'
-ATTR_ORDERBY: str = 'orderBy'
-ATTR_INLINECOUNT: str = 'inlineCount'
-ATTR_NEXT: str = 'next'
-ATTR_SKIP: str = 'skip'
-ATTR_TOP: str = 'top'
-ATTR_TOTAL: str = 'total'
-ERROR_ALREADY_EXISTS: str = 'TCMP_35004'
-ERROR_DELETE_PIPELINE: str = 'TCMP_60255'
-ERROR_MISSING_FIELD: str = 'TCMP_1002'
-ERROR_NOT_FOUND: str = 'TCMP_09007'
-ERROR_REFERRED_BY: str = 'TCMP_35001'
-ERROR_OBTAIN_ACCESS: str = 'TCMP_09012'
-ERROR_REMOVE_FAILED: str = 'TCMP_35243'
-MIN_PAGE_SIZE: int = 1
-MAX_PAGE_SIZE: int = 100
+STATUS_REQUIRED: Final[tuple[int, ...]] = (200, 201)
+STATUS_NOT_MODIFIED: Final[int] = 304
+STATUS_BAD_REQUEST: Final[int] = 400
+STATUS_SERVER_ERROR: Final[int] = 500
+ATTR_EXPAND: Final[str] = 'expand'
+ATTR_FILTER: Final[str] = '$filter'
+ATTR_ORDERBY: Final[str] = 'orderBy'
+ATTR_INLINECOUNT: Final[str] = 'inlineCount'
+ATTR_NEXT: Final[str] = 'next'
+ATTR_SKIP: Final[str] = 'skip'
+ATTR_TOP: Final[str] = 'top'
+ATTR_TOTAL: Final[str] = 'total'
+ERROR_KEY: Final[str] = '_ERROR_'
+ERROR_ALREADY_EXISTS: Final[str] = 'TCMP_35004'
+ERROR_DELETE_PIPELINE: Final[str] = 'TCMP_60255'
+ERROR_MISSING_FIELD: Final[str] = 'TCMP_1002'
+MIN_PAGE_SIZE: Final[int] = 1
+MAX_PAGE_SIZE: Final[int] = 100
 
 
 @dataclass
-class Tenant:
+class Tenant(ABC):
     """Asynchronous interface to interacting with SAP Incentive Management REST API.
 
     Parameters:
-        tenant (str): Your tenant ID. For example, if the login url is
+        tenant (str): Your tenant ID.
+            For Oracle and HANA tenants, if the url is
             `https://cald-prd.callidusondemand.com/SalesPortal/#!/`,
             the tenant ID is `cald-prd`.
-        session (ClientSession): An aiohttp ClientSession.
-        verify_ssl (bool, optional): Enable SSL verification.
-            Defaults to True.
-        request_timeout (int, optional): Request timeout in seconds.
-            Defaults to 60.
+
+            For GCP, the tenant ID starts with 'g', if the url is
+            `https://g000.app.commissions.cloud.sap/SalesPortal/#!/`,
+            the tenant ID is `g000`.
+
+        authenticator (Authenticator): An Authenticator instance to obtain the
+            authorization header. Oracle and HANA tenants require BasicAuthenticator,
+            GCP tenants require OAuth2Authenticator.
     """
 
     tenant: str
-    session: ClientSession
-    verify_ssl: bool = True
-    request_timeout: int = REQUEST_TIMEOUT
+    authenticator: auth.Authenticator
+    _session: ClientSession = field(
+        default_factory=ClientSession,
+        init=False,
+        repr=False,
+    )
+
+    async def __aenter__(self) -> Self:
+        """Enter the asynchronous context manager."""
+        return self
+
+    async def __aexit__(
+        self,
+        *args: object,
+        **kwargs: Any,
+    ) -> None:
+        """Exit the asynchronous context manager."""
+        await self.close()
+
+    async def close(self) -> None:
+        """Close the client session."""
+        await self._session.close()
 
     @property
-    def host(self) -> str:
+    @abstractmethod
+    def hostname(self) -> str:
         """The fully qualified hostname."""
-        return f'https://{self.tenant}.callidusondemand.com'
+
+    @property
+    @abstractmethod
+    def host_type(self) -> const.TenantType:
+        """The type of tenant."""
 
     async def _request(
         self,
-        method: HTTPMethod,
+        method: const.HTTPMethod,
         uri: str,
         params: dict | None = None,
         json: list | None = None,
@@ -98,14 +117,16 @@ class Tenant:
         """
         LOGGER.debug('Request: %s, %s, %s', method, uri, params)
 
+        auth_header: dict[str, str] = await self.authenticator.get_auth(self.tenant)
         try:
-            async with asyncio.timeout(self.request_timeout):
-                response = await self.session.request(
+            async with asyncio.timeout(const.REQUEST_TIMEOUT):
+                response = await self._session.request(
                     method=method,
-                    url=f'{self.host}/{uri}',
+                    url=self.hostname + uri,
                     params=params,
                     json=json,
-                    ssl=self.verify_ssl,
+                    ssl=const.VERIFY_SSL,
+                    headers=auth_header,
                 )
         except TimeoutError as err:
             msg = 'Timeout while connecting'
@@ -131,7 +152,7 @@ class Tenant:
         response_json = await response.json()
 
         # Validate the required status code.
-        if response.status not in REQUIRED_STATUS[method]:
+        if response.status not in STATUS_REQUIRED:
             msg = f'Unexpected response status: {response.status}'
             LOGGER.error(msg)
             raise exceptions.SAPBadRequestError(msg, response_json)
@@ -142,7 +163,7 @@ class Tenant:
         """Create a new resource.
 
         Parameters:
-            resource (T): The resource to create.
+            resource (T): The resource instance to create.
 
         Returns:
             T: The created resource.
@@ -164,8 +185,8 @@ class Tenant:
 
         try:
             response: dict[str, Any] = await self._request(
-                method=HTTPMethod.POST,
-                uri=resource.attr_endpoint,
+                method=const.HTTPMethod.POST,
+                uri=resource.attr_endpoint_prefix + resource.attr_endpoint,
                 json=[json],
             )
         except exceptions.SAPBadRequestError as err:
@@ -176,7 +197,7 @@ class Tenant:
 
             error_data: list[dict[str, Any]] = err.data[attr_resource]
             for errors in error_data:
-                error_message = errors.get(ATTR_ERROR)
+                error_message = errors.get(ERROR_KEY)
                 if error_message and ERROR_ALREADY_EXISTS in error_message:
                     raise exceptions.SAPAlreadyExistsError(error_message) from err
                 if any(ERROR_MISSING_FIELD in value for value in errors.values()):
@@ -204,7 +225,7 @@ class Tenant:
         """Update an existing resource.
 
         Parameters:
-            resource (T): The resource to update.
+            resource (T): The resource instance to update.
 
         Returns:
             T: The updated resource.
@@ -224,8 +245,8 @@ class Tenant:
 
         try:
             response: dict[str, Any] = await self._request(
-                method=HTTPMethod.PUT,
-                uri=resource.attr_endpoint,
+                method=const.HTTPMethod.PUT,
+                uri=resource.attr_endpoint_prefix + resource.attr_endpoint,
                 json=[json],
             )
         except exceptions.SAPNotModifiedError:
@@ -238,7 +259,7 @@ class Tenant:
 
             error_data: list[dict[str, Any]] = err.data[attr_resource]
             for errors in error_data:
-                if error_message := errors.get(ATTR_ERROR):
+                if error_message := errors.get(ERROR_KEY):
                     LOGGER.exception(error_message)
                     raise exceptions.SAPResponseError(error_message) from err
             msg = f'Unexpected error. {error_data}'
@@ -263,7 +284,7 @@ class Tenant:
         """Delete a resource.
 
         Parameters:
-            resource (T): The resource to delete.
+            resource (T): The resource isntance to delete.
 
         Returns:
             bool: True if the resource was deleted. Raises an exception othwise.
@@ -279,11 +300,11 @@ class Tenant:
         if not (seq := resource.seq):
             msg = f'Resource {cls.__name__} has no unique identifier'
             raise exceptions.SAPDeleteFailedError(msg)
-        uri: str = f'{resource.attr_endpoint}({seq})'
+        uri: str = f'{resource.attr_endpoint_prefix}{resource.attr_endpoint}({seq})'
 
         try:
             response: dict[str, Any] = await self._request(
-                method=HTTPMethod.DELETE,
+                method=const.HTTPMethod.DELETE,
                 uri=uri,
             )
         except exceptions.SAPBadRequestError as err:
@@ -315,7 +336,7 @@ class Tenant:
 
         return True
 
-    async def read_all(  # pylint: disable=too-many-arguments,too-many-locals # noqa: C901
+    async def read_all(  # pylint: disable=too-many-arguments,too-many-locals
         self,
         resource_cls: type[T],
         *,
@@ -326,7 +347,7 @@ class Tenant:
         """Read all matching resources.
 
         Parameters:
-            resource_cls (type[T]): The type of the resource to list.
+            resource_cls (type[T]): The resource type to read.
             filters (BooleanOperator | LogicalOperator | str, optional): The filters to
                 apply.
             order_by (list[str], optional): The fields to order by.
@@ -340,15 +361,8 @@ class Tenant:
         """
         page_size = min(max(page_size, MIN_PAGE_SIZE), MAX_PAGE_SIZE)
 
-        # FIX: Issue #30
-        if resource_cls is model.SalesTransaction and page_size != 1:
-            LOGGER.warning(
-                'See issue https://github.com/niro1987/sapimclient/issues/30',
-            )
-            page_size = 1
-
         LOGGER.debug(
-            'List %s filters=%s order_by=%s page_size=%s',
+            'Read all %s filters=%s order_by=%s page_size=%s',
             resource_cls.__name__,
             str(filters),
             ','.join(order_by) if order_by else 'None',
@@ -367,7 +381,7 @@ class Tenant:
         ]:
             params[ATTR_EXPAND] = ','.join(expand_alias)
 
-        uri: str = resource_cls.attr_endpoint
+        uri: str = resource_cls.attr_endpoint_prefix + resource_cls.attr_endpoint
         while True:
             response = await retry(
                 self._request,
@@ -395,7 +409,7 @@ class Tenant:
                 break
 
             params = {}
-            uri = 'api' + next_uri
+            uri = resource_cls.attr_endpoint_prefix + next_uri
 
     async def read_first(
         self,
@@ -448,7 +462,9 @@ class Tenant:
         """
         LOGGER.debug('Read Seq %s(%s)', resource_cls.__name__, seq)
 
-        uri: str = f'{resource_cls.attr_endpoint}({seq})'
+        uri: str = (
+            f'{resource_cls.attr_endpoint_prefix}{resource_cls.attr_endpoint}({seq})'
+        )
         params: dict[str, str] = {}
         expands: dict[str, FieldInfo] = resource_cls.expands()
         if expand_alias := [
@@ -457,7 +473,7 @@ class Tenant:
             params[ATTR_EXPAND] = ','.join(expand_alias)
 
         response: dict[str, Any] = await self._request(
-            method=HTTPMethod.GET,
+            method=const.HTTPMethod.GET,
             uri=uri,
             params=params,
         )
@@ -499,14 +515,41 @@ class Tenant:
             raise exceptions.SAPNotFoundError(msg)
         return await self.read_seq(cls, seq)
 
-    async def run_pipeline(self, job: model.pipeline._PipelineJob) -> model.Pipeline:
+
+@dataclass
+class LegacyTenant(Tenant):
+    """Asynchronous interface to interacting with SAP Incentive Management REST API.
+
+    Parameters:
+        tenant (str): Your tenant ID.
+            The tenant ID starts with 'g'. If the url is
+            `https://g000.app.commissions.cloud.sap/SalesPortal/#!/`,
+            the tenant ID is `g000`.
+
+        authenticator (BasicAuthenticator): An instance of BasicAuthenticator to obtain
+            the authorization header.
+    """
+
+    authenticator: auth.BasicAuthenticator
+
+    @property
+    def hostname(self) -> str:
+        """The fully qualified hostname."""
+        return const.LEGACY_HOSTNAME.format(tenant=self.tenant.lower())
+
+    @property
+    def host_type(self) -> const.TenantType:
+        """The type of tenant."""
+        return const.TenantType.LEGACY
+
+    async def run_pipeline(self, job: legacy.PipelineJob) -> legacy.Pipeline:
         """Run a pipeline and retrieves the created Pipeline.
 
         Parameters:
-            job (model.pipeline._PipelineJob): The pipeline job to run.
+            job (legacy.PipelineJob): The pipeline job to run.
 
         Returns:
-            model.Pipeline: The created Pipeline.
+            legacy.Pipeline: The created Pipeline.
 
         Raises:
             SAPResponseError: If the pipeline failed to run.
@@ -520,7 +563,7 @@ class Tenant:
 
         try:
             response: dict[str, Any] = await self._request(
-                method=HTTPMethod.POST,
+                method=const.HTTPMethod.POST,
                 uri=job.attr_endpoint,
                 json=[json],
             )
@@ -552,13 +595,13 @@ class Tenant:
             raise exceptions.SAPResponseError(msg)
 
         seq: str = json_data['0'][0]
-        return await self.read_seq(model.Pipeline, seq)
+        return await self.read_seq(legacy.Pipeline, seq)
 
-    async def cancel_pipeline(self, job: model.Pipeline) -> bool:
+    async def cancel_pipeline(self, job: legacy.Pipeline) -> bool:
         """Cancel a running pipeline.
 
         Parameters:
-            job (model.Pipeline): The running pipeline job to cancel.
+            job (legacy.Pipeline): The running pipeline job to cancel.
 
         Returns:
             bool: True if the pipeline was successfully canceled. Raises an exception
@@ -572,7 +615,7 @@ class Tenant:
         uri: str = f'{job.attr_endpoint}({job.pipeline_run_seq})'
         try:
             response: dict[str, Any] = await self._request(
-                method=HTTPMethod.DELETE,
+                method=const.HTTPMethod.DELETE,
                 uri=uri,
             )
         except exceptions.SAPBadRequestError as err:
@@ -598,3 +641,30 @@ class Tenant:
             raise exceptions.SAPResponseError(msg)
 
         return True
+
+
+@dataclass
+class GCPTenant(Tenant):
+    """Asynchronous interface to interacting with SAP Incentive Management REST API.
+
+    Parameters:
+        tenant (str): Your tenant ID.
+            The tenant ID starts with 'g'. If the url is
+            `https://g000.app.commissions.cloud.sap/SalesPortal/#!/`,
+            the tenant ID is `g000`.
+
+        authenticator (OAuth2Authenticator): An OAuth2Authenticator instance to obtain
+            the authorization header.
+    """
+
+    authenticator: auth.OAuth2Authenticator
+
+    @property
+    def hostname(self) -> str:
+        """The fully qualified hostname."""
+        return const.GCP_HOSTNAME.format(tenant=self.tenant.lower())
+
+    @property
+    def host_type(self) -> const.TenantType:
+        """The type of tenant."""
+        return const.TenantType.GCP

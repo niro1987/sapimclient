@@ -9,17 +9,22 @@ import pytest
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from sapimclient.model import Endpoint, Pipeline, Reference, Resource
-from sapimclient.model.pipeline import _PipelineJob
+from sapimclient.model import Endpoint
+from sapimclient.model.legacy import Pipeline, PipelineJob
+from sapimclient.model.legacy.base import LegacyResource, Reference
 
-from tests.conftest import list_endpoint_cls, list_pipeline_job_cls, list_resource_cls
+from tests.conftest import (
+    legacy_endpoint_cls,
+    legacy_pipeline_job_cls,
+    legacy_resource_cls,
+)
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 @pytest.mark.parametrize(
     'endpoint_cls',
-    list_endpoint_cls(),
+    legacy_endpoint_cls(),
 )
 def test_endpoint_basics(
     endpoint_cls: type[Endpoint],
@@ -49,10 +54,10 @@ def test_endpoint_basics(
 
 @pytest.mark.parametrize(
     'resource_cls',
-    list_resource_cls(),
+    legacy_resource_cls(),
 )
 def test_resource_basics(
-    resource_cls: type[Resource],
+    resource_cls: type[LegacyResource],
 ) -> None:
     """Test resources."""
     # enpoint subclass
@@ -62,7 +67,7 @@ def test_resource_basics(
     ), "resource is not a subclass of '_Endpoint'"
     assert issubclass(
         resource_cls,
-        Resource,
+        LegacyResource,
     ), "resource is not a subclass of '_Resource'"
 
     # attr_seq
@@ -96,21 +101,21 @@ def test_resource_basics(
 
 @pytest.mark.parametrize(
     'pipeline_job',
-    list_pipeline_job_cls(),
+    legacy_pipeline_job_cls(),
 )
 def test_pipeline_job_basics(
-    pipeline_job: type[_PipelineJob],
+    pipeline_job: type[PipelineJob],
 ) -> None:
     """Test pipeline jobs."""
     # enpoint subclass
     assert issubclass(
         pipeline_job,
         Endpoint,
-    ), "pipeline job is not a subclass of '_Endpoint'"
+    ), "pipeline job is not a subclass of 'Endpoint'"
     assert issubclass(
         pipeline_job,
-        _PipelineJob,
-    ), "pipeline job is not a subclass of '_PipelineJob'"
+        PipelineJob,
+    ), "pipeline job is not a subclass of 'PipelineJob'"
 
     # command
     assert (
@@ -123,7 +128,7 @@ def test_pipeline_job_basics(
 # def test_resource_model() -> None:
 #     """Test resource models."""
 
-#     class DummyResource(Resource):
+#     class DummyResource(LegacyResource):
 #         """Dummy resource model."""
 
 #         attr_seq: ClassVar[str] = 'dummy_seq'
@@ -159,10 +164,10 @@ def test_pipeline_job_basics(
 
 @pytest.mark.parametrize(
     'resource_cls',
-    list_resource_cls(),
+    legacy_resource_cls(),
 )
 def test_resource_reference(
-    resource_cls: type[Resource],
+    resource_cls: type[LegacyResource],
 ) -> None:
     """Test resource reference."""
     data: dict[str, Any] = {
@@ -178,7 +183,7 @@ def test_resource_reference(
 
 
 def test_pipeline_resource() -> None:
-    """Test Pipeline Resource field validator."""
+    """Test Pipeline LegacyResource field validator."""
     pipeline = Pipeline(
         # Required fields
         command=None,

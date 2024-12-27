@@ -1,5 +1,14 @@
 """Python SAP Incentive Management Client."""
 
-from .client import Tenant
+from .auth import BasicAuthenticator, OAuth2Authenticator
+from .client import GCPTenant, LegacyTenant, Tenant
+from .const import TenantType
 
-__all__ = ['Tenant']
+__all__ = [
+    'BasicAuthenticator',
+    'GCPTenant',
+    'LegacyTenant',
+    'OAuth2Authenticator',
+    'Tenant',
+    'TenantType',
+]

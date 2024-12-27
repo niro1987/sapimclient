@@ -1,3 +1,7 @@
 {
-  "recommendations": ["sanaajani.taskrunnercode"]
+  "recommendations": [
+    "sanaajani.taskrunnercode",
+    "GitHub.copilot",
+    "humao.rest-client"
+  ]
 }

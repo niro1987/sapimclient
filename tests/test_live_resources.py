@@ -10,17 +10,18 @@ import pytest
 from sapimclient import Tenant, model
 from sapimclient.helpers import AsyncLimitedGenerator
 
-from tests.conftest import list_resource_cls
+from tests.conftest import legacy_resource_cls
 
 LOGGER = logging.getLogger(__name__)
 T = TypeVar('T', bound=model.Resource)
 warnings.filterwarnings('error')  # Raise warnings as errors
 
+pytest.skip('Runs on live tenant', allow_module_level=True)
 
-@pytest.mark.skip('Runs on live tenant')
+
 @pytest.mark.parametrize(
     'resource_cls',
-    list_resource_cls(),
+    legacy_resource_cls(),
 )
 async def test_resource_model(
     live_tenant: Tenant,
@@ -54,10 +55,9 @@ async def test_resource_model(
         pytest.fail(f'Extra keys found: {extra_keys}')
 
 
-@pytest.mark.skip('Runs on live tenant')
 @pytest.mark.parametrize(
     'resource_cls',
-    list_resource_cls(),
+    legacy_resource_cls(),
 )
 async def test_resource_reference(
     live_tenant: Tenant,

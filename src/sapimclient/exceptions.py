@@ -7,6 +7,14 @@ class SAPExceptionError(Exception):
     """Base exception for Python SAP Incentive Management Client."""
 
 
+class SAPNotAuthorizedError(SAPExceptionError):
+    """Exception to indicate not authorized."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize a Not Authorized exception."""
+        super().__init__(message)
+
+
 class SAPConnectionError(SAPExceptionError):
     """Exception to indicate connection error."""
 
@@ -29,7 +37,7 @@ class SAPBadRequestError(SAPExceptionError):
     def __init__(self, message: str, data: dict[str, Any]) -> None:
         """Initialize a Bad Request exception."""
         self.data = data
-        super().__init__(message, {'data': data})
+        super().__init__(message, data)
 
 
 class SAPNotModifiedError(SAPExceptionError):

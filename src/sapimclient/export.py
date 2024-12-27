@@ -8,9 +8,11 @@ from typing import Any
 
 import pandas as pd
 
-from sapimclient import Tenant, model
+from sapimclient import LegacyTenant
 from sapimclient.exceptions import SAPConnectionError, SAPNotFoundError
 from sapimclient.helpers import BooleanOperator, LogicalOperator, retry
+from sapimclient.model import Value, legacy
+from sapimclient.model.legacy.base import LegacyResource, Reference
 
 GLOB_SEMAPHORE = asyncio.Semaphore(5)
 MAX_BUFFER: int = 1000
@@ -75,7 +77,7 @@ def _transform_business_units(series: pd.Series) -> pd.Series:
 
 def _transform_all(
     df: pd.DataFrame,
-    resource_cls: type[model.Resource],
+    resource_cls: type[LegacyResource],
 ) -> pd.DataFrame:
     """Transform and extract all objectes to values."""
     date_fields: list[str] = [
@@ -87,11 +89,11 @@ def _transform_all(
     ]
     df[bool_fields] = df[bool_fields].apply(_transform_bools)
     value_fields: list[str] = [
-        key for key in resource_cls.typed_fields(model.Value) if key in df.columns
+        key for key in resource_cls.typed_fields(Value) if key in df.columns
     ]
     df[value_fields] = df[value_fields].apply(_transform_values)
     reference_fields: list[str] = [
-        key for key in resource_cls.typed_fields(model.Reference) if key in df.columns
+        key for key in resource_cls.typed_fields(Reference) if key in df.columns
     ]
     name_fields: list[str] = [f'{field_name}_name' for field_name in reference_fields]
     keys_fields: list[str] = [f'{field_name}_keys' for field_name in reference_fields]
@@ -106,12 +108,12 @@ def _transform_all(
 
 
 async def load_resource_filtered(
-    client: Tenant,
-    resource_cls: type[model.Resource],
+    client: LegacyTenant,
+    resource_cls: type[LegacyResource],
     filters: BooleanOperator | LogicalOperator | str | None = None,
 ) -> pd.DataFrame:
     """Load resources to DataFrame."""
-    generator: AsyncGenerator[model.Resource, None] = client.read_all(
+    generator: AsyncGenerator[LegacyResource, None] = client.read_all(
         resource_cls=resource_cls,
         filters=filters,
         page_size=100,
@@ -141,8 +143,8 @@ async def load_resource_filtered(
 
 
 async def load_resource_seqs(
-    client: Tenant,
-    resource_cls: type[model.Resource],
+    client: LegacyTenant,
+    resource_cls: type[LegacyResource],
     seqs: set[str] | pd.Series,
 ) -> pd.DataFrame:
     """Load reference resources into DataFrame."""
@@ -165,7 +167,7 @@ async def load_resource_seqs(
             )
             for seq in chunk_seqs
         ]
-        result: list[model.Resource] = await asyncio.gather(*tasks)
+        result: list[LegacyResource] = await asyncio.gather(*tasks)
         chunk = pd.DataFrame([item.model_dump() for item in result], dtype='object')
         chunk = chunk.set_index(resource_cls.attr_seq)
 
@@ -175,14 +177,14 @@ async def load_resource_seqs(
 
 
 async def load_credits(  # pylint: disable=too-many-locals
-    client: Tenant,
+    client: LegacyTenant,
     filters: BooleanOperator | LogicalOperator | str | None = None,
     filename: Path | None = None,
 ) -> pd.DataFrame:
     """Load Credit results extended with reference data to DataFrame."""
     df_credits: pd.DataFrame = await load_resource_filtered(
         client=client,
-        resource_cls=model.Credit,
+        resource_cls=legacy.Credit,
         filters=filters,
     )
     df_credits['order_id'] = df_credits['sales_order_keys'].apply(
@@ -208,22 +210,22 @@ async def load_credits(  # pylint: disable=too-many-locals
 
     df_participants: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Participant,
+        resource_cls=legacy.Participant,
         seqs=participants,
     )
     df_positions: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Position,
+        resource_cls=legacy.Position,
         seqs=positions,
     )
     df_periods: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Period,
+        resource_cls=legacy.Period,
         seqs=periods,
     )
     df_event_types: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.EventType,
+        resource_cls=legacy.EventType,
         seqs=event_types,
     )
 
@@ -312,14 +314,14 @@ async def load_credits(  # pylint: disable=too-many-locals
 
 
 async def load_measurements(
-    client: Tenant,
+    client: LegacyTenant,
     filters: BooleanOperator | LogicalOperator | str | None = None,
     filename: Path | None = None,
 ) -> pd.DataFrame:
     """Load Credit results extended with reference data to DataFrame."""
     df_measure: pd.DataFrame = await load_resource_filtered(
         client=client,
-        resource_cls=model.Measurement,
+        resource_cls=legacy.Measurement,
         filters=filters,
     )
 
@@ -329,17 +331,17 @@ async def load_measurements(
 
     df_participants: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Participant,
+        resource_cls=legacy.Participant,
         seqs=participants,
     )
     df_positions: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Position,
+        resource_cls=legacy.Position,
         seqs=positions,
     )
     df_periods: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Period,
+        resource_cls=legacy.Period,
         seqs=periods,
     )
 
@@ -405,14 +407,14 @@ async def load_measurements(
 
 
 async def load_incentives(
-    client: Tenant,
+    client: LegacyTenant,
     filters: BooleanOperator | LogicalOperator | str | None = None,
     filename: Path | None = None,
 ) -> pd.DataFrame:
     """Load Credit results extended with reference data to DataFrame."""
     df_incentive: pd.DataFrame = await load_resource_filtered(
         client=client,
-        resource_cls=model.Incentive,
+        resource_cls=legacy.Incentive,
         filters=filters,
     )
 
@@ -422,17 +424,17 @@ async def load_incentives(
 
     df_participants: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Participant,
+        resource_cls=legacy.Participant,
         seqs=participants,
     )
     df_positions: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Position,
+        resource_cls=legacy.Position,
         seqs=positions,
     )
     df_periods: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Period,
+        resource_cls=legacy.Period,
         seqs=periods,
     )
 
@@ -501,14 +503,14 @@ async def load_incentives(
 
 
 async def load_commissions(
-    client: Tenant,
+    client: LegacyTenant,
     filters: BooleanOperator | LogicalOperator | str | None = None,
     filename: Path | None = None,
 ) -> pd.DataFrame:
     """Load Credit results extended with reference data to DataFrame."""
     df_commmission: pd.DataFrame = await load_resource_filtered(
         client=client,
-        resource_cls=model.Commission,
+        resource_cls=legacy.Commission,
         filters=filters,
     )
 
@@ -518,17 +520,17 @@ async def load_commissions(
 
     df_participants: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Participant,
+        resource_cls=legacy.Participant,
         seqs=participants,
     )
     df_positions: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Position,
+        resource_cls=legacy.Position,
         seqs=positions,
     )
     df_periods: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Period,
+        resource_cls=legacy.Period,
         seqs=periods,
     )
 
@@ -566,14 +568,14 @@ async def load_commissions(
 
 
 async def load_deposits(
-    client: Tenant,
+    client: LegacyTenant,
     filters: BooleanOperator | LogicalOperator | str | None = None,
     filename: Path | None = None,
 ) -> pd.DataFrame:
     """Load Credit results extended with reference data to DataFrame."""
     df_deposit: pd.DataFrame = await load_resource_filtered(
         client=client,
-        resource_cls=model.Deposit,
+        resource_cls=legacy.Deposit,
         filters=filters,
     )
 
@@ -583,17 +585,17 @@ async def load_deposits(
 
     df_participants: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Participant,
+        resource_cls=legacy.Participant,
         seqs=participants,
     )
     df_positions: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Position,
+        resource_cls=legacy.Position,
         seqs=positions,
     )
     df_periods: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Period,
+        resource_cls=legacy.Period,
         seqs=periods,
     )
 
@@ -668,14 +670,14 @@ async def load_deposits(
 
 
 async def load_payment_summary(
-    client: Tenant,
+    client: LegacyTenant,
     filters: BooleanOperator | LogicalOperator | str | None = None,
     filename: Path | None = None,
 ) -> pd.DataFrame:
     """Load Credit results extended with reference data to DataFrame."""
     df_deposit: pd.DataFrame = await load_resource_filtered(
         client=client,
-        resource_cls=model.PaymentSummary,
+        resource_cls=legacy.PaymentSummary,
         filters=filters,
     )
 
@@ -685,17 +687,17 @@ async def load_payment_summary(
 
     df_participants: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Participant,
+        resource_cls=legacy.Participant,
         seqs=participants,
     )
     df_positions: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Position,
+        resource_cls=legacy.Position,
         seqs=positions,
     )
     df_periods: pd.DataFrame = await load_resource_seqs(
         client=client,
-        resource_cls=model.Period,
+        resource_cls=legacy.Period,
         seqs=periods,
     )
 

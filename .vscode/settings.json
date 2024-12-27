@@ -1,8 +1,9 @@
 {
   "files.exclude": {
-    "**/__pycache__": true,
+    "**/*cache*": true,
     "**/*.egg-info": true,
-    "**/.pytest_cache": true
+    "**/node_modules": true,
+    "**/.coverage": true
   },
   "editor.rulers": [88, 120],
   "python.defaultInterpreterPath": "/usr/local/bin/python",

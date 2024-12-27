@@ -6,17 +6,14 @@ all other models.
 """
 
 from datetime import datetime
-from importlib import import_module
 from inspect import isclass
-from types import ModuleType
-from typing import Any, ClassVar, Literal, get_args, get_origin
+from typing import ClassVar, Literal, get_args, get_origin
 
 from pydantic import (
     AliasGenerator,
     BaseModel,
     ConfigDict,
     Field,
-    field_validator,
 )
 from pydantic.alias_generators import to_camel
 from pydantic.fields import FieldInfo
@@ -124,6 +121,7 @@ class Endpoint(_BaseModel):
             Used by the client to construct the full request url.
     """
 
+    attr_endpoint_prefix: ClassVar[str] = ''
     attr_endpoint: ClassVar[str]
 
     @classmethod
@@ -292,42 +290,6 @@ class Expandable(_BaseModel):
     """
 
 
-class Reference(Expandable):
-    """Expanded reference to a resource.
-
-    Parameters:
-        key (str): System unique identifier for the referred resource.
-        display_name (str): Name of the referred resource.
-        object_type (type[model.Resource]): Class of the referred resource.
-        key_string (str): Seems to always be the same as ``key``.
-        logical_keys (dict[str, str | int | Value | Any]): Some key
-            attributes of the referred resource.
-    """
-
-    key: str
-    display_name: str
-    object_type: type[Resource]
-    key_string: str | None = None
-    logical_keys: dict[str, str | int | Value | Any]
-
-    @field_validator('object_type', mode='before')
-    @classmethod
-    def convert_object_type(cls, value: str) -> type[Resource]:
-        """Convert string object_type to class."""
-        module: ModuleType = import_module('sapimclient.model')
-        if not (obj := getattr(module, value, None)):
-            msg = f'Could not find object type: {value}'
-            raise ValueError(msg)
-        if issubclass(obj, Resource) and obj is not Resource:
-            return obj
-        msg = f'Object type is not a subclass of Resource: {value}'
-        raise ValueError(msg)
-
-    def __str__(self) -> str:
-        """Return key value."""
-        return self.key
-
-
 class SalesTransactionAssignment(Expandable, Generic16Mixin):
     """Expanded reference to a transaction assignment.
 
@@ -406,7 +368,7 @@ class RuleUsage(_BaseModel):
     TODO: Is this an expandable reference?
     """
 
-    id: str
+    id: str | int
     name: str
 
 
@@ -420,4 +382,6 @@ class RuleUsageList(_BaseModel):
     TODO: Make this class accessible as iterator of ``RuleUsage``.
     """
 
-    children: list[RuleUsage]
+    id: str | int
+    name: str
+    children: list[RuleUsage] | None = None

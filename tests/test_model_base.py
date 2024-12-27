@@ -7,13 +7,15 @@ import pytest
 from pydantic import AliasChoices, Field
 from pydantic_core import ValidationError
 
-from sapimclient.model import BusinessUnit, base as model_base
+from sapimclient.model.base import Endpoint, Expandable, Resource, _BaseModel
+from sapimclient.model.legacy import BusinessUnit
+from sapimclient.model.legacy.base import LegacyResource, Reference
 
 
 def test_basemodel() -> None:
     """Test _BaseModel class."""
 
-    class DummyModel(model_base._BaseModel):
+    class DummyModel(_BaseModel):
         """Dummy model for testing."""
 
         dummy_str: str | None = None
@@ -52,7 +54,7 @@ def test_basemodel() -> None:
         SPAM = 'spam'
         EGGS = 'eggs'
 
-    class DummyEnumModel(model_base._BaseModel):
+    class DummyEnumModel(_BaseModel):
         """Test use of enum values."""
 
         dummy_str: DummyEnum
@@ -74,7 +76,7 @@ def test_basemodel() -> None:
 def test_basemodel_typed_fields() -> None:
     """Test _BaseModel.typed_fields function."""
 
-    class DummyModel(model_base._BaseModel):
+    class DummyModel(_BaseModel):
         """Dummy model for testing."""
 
         dummy_str: str
@@ -101,31 +103,31 @@ def test_basemodel_typed_fields() -> None:
 def test_endpoint() -> None:
     """Test Endpoint class."""
 
-    class DummyEndpoint(model_base.Endpoint):
+    class DummyEndpoint(Endpoint):
         """Dummy endpoint for testing."""
 
         attr_endpoint: ClassVar[str] = 'dummyEndpoint'
-        expandable: model_base.Expandable
+        expandable: Expandable
 
-    assert 'attr_endpoint' in model_base.Endpoint.__annotations__
+    assert 'attr_endpoint' in Endpoint.__annotations__
     assert DummyEndpoint.attr_endpoint == 'dummyEndpoint'
 
     # Test expands
-    dummy_endpoint = DummyEndpoint(expandable=model_base.Expandable())
+    dummy_endpoint = DummyEndpoint(expandable=Expandable())
     assert 'expandable' in dummy_endpoint.expands()
 
 
 def test_resource() -> None:
     """Test Resource class."""
 
-    class DummyResource(model_base.Resource):
+    class DummyResource(Resource):
         """Dummy resource for testing."""
 
         attr_seq: ClassVar[str] = 'dummy_seq'
         dummy_seq: str | None = None
 
-    assert issubclass(model_base.Resource, model_base.Endpoint)
-    assert 'attr_seq' in model_base.Resource.__annotations__
+    assert issubclass(Resource, Endpoint)
+    assert 'attr_seq' in Resource.__annotations__
     assert DummyResource.attr_seq == 'dummy_seq'
 
     dummy_resource = DummyResource(dummy_seq='spam')
@@ -138,7 +140,7 @@ def test_resource() -> None:
 def test_resource_alias_override() -> None:
     """Test resource alias override."""
 
-    class DummyResource(model_base.Resource):
+    class DummyResource(LegacyResource):
         """Dummy model."""
 
         dummy_code_id: str = Field(
@@ -159,18 +161,18 @@ def test_resource_alias_override() -> None:
 
 def test_reference() -> None:
     """Test Reference class."""
-    assert issubclass(model_base.Reference, model_base.Expandable)
-    assert 'key' in model_base.Reference.model_fields
-    assert 'display_name' in model_base.Reference.model_fields
-    assert 'object_type' in model_base.Reference.model_fields
-    assert 'logical_keys' in model_base.Reference.model_fields
+    assert issubclass(Reference, Expandable)
+    assert 'key' in Reference.model_fields
+    assert 'display_name' in Reference.model_fields
+    assert 'object_type' in Reference.model_fields
+    assert 'logical_keys' in Reference.model_fields
 
     # Test field validator
-    class DummyModel(model_base.Resource):
+    class DummyModel(LegacyResource):
         """Dummy model for testing."""
 
-        business_unit: model_base.Reference
-        business_units: list[model_base.Reference]
+        business_unit: Reference
+        business_units: list[Reference]
 
     model_data = {
         'business_unit': {
@@ -203,11 +205,11 @@ def test_reference() -> None:
 def test_reference_string() -> None:
     """Test reference field as string."""
 
-    class DummyResource(model_base.Resource):
+    class DummyResource(LegacyResource):
         """Dummy model."""
 
         id: str
-        reference: str | model_base.Reference
+        reference: str | Reference
 
     dummy: DummyResource = DummyResource(id='spamm', reference='eggs')
     assert dummy.id == 'spamm'
@@ -218,10 +220,10 @@ def test_reference_string() -> None:
 def test_reference_unknown_resource() -> None:
     """Test Reference class with unkown resource class."""
 
-    class DummyModel(model_base.Resource):
+    class DummyModel(LegacyResource):
         """Dummy model for testing."""
 
-        business_unit: model_base.Reference
+        business_unit: Reference
 
     # Test reference must be a subclass of Resource
     model_data = {
@@ -235,32 +237,4 @@ def test_reference_unknown_resource() -> None:
 
     with pytest.raises(ValidationError) as err:
         _ = DummyModel(**model_data)
-    assert 'Could not find object type: UnknownResource' in str(err.value)
-
-    # Test reference must not be class Resource
-    model_data = {
-        'business_unit': {
-            'key': '123',
-            'display_name': 'spam',
-            'object_type': 'Resource',
-            'logical_keys': {'name': 'spam'},
-        },
-    }
-
-    with pytest.raises(ValidationError) as err:
-        _ = DummyModel(**model_data)
-    assert 'Object type is not a subclass of Resource: Resource' in str(err.value)
-
-    # Test reference must be a subclass of Resource even if imported from module
-    model_data = {
-        'business_unit': {
-            'key': '123',
-            'display_name': 'spam',
-            'object_type': 'Value',
-            'logical_keys': {'name': 'spam'},
-        },
-    }
-
-    with pytest.raises(ValidationError) as err:
-        _ = DummyModel(**model_data)
-    assert 'Object type is not a subclass of Resource: Value' in str(err.value)
+    assert 'Could not find LegacyResource: UnknownResource' in str(err.value)

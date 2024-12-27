@@ -7,11 +7,12 @@ import re
 from pathlib import Path
 from typing import Final
 
-from sapimclient import Tenant, model
+from sapimclient import LegacyTenant
 from sapimclient.const import PipelineState, PipelineStatus
 from sapimclient.exceptions import SAPAlreadyExistsError, SAPConnectionError
 from sapimclient.helpers import retry
-from sapimclient.model.data_type import _DataType
+from sapimclient.model import legacy
+from sapimclient.model.legacy.data_type import _DataType
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -45,16 +46,16 @@ RE_XML: Final[re.Pattern] = re.compile(
 )
 
 
-def _file_cls(file: Path) -> type[_DataType | model.XMLImport]:
+def _file_cls(file: Path) -> type[_DataType | legacy.XMLImport]:
     """Determine the endpoint based on the filename."""
-    file_mapping: dict[re.Pattern, type[_DataType | model.XMLImport]] = {
-        RE_CREDIT_TYPE: model.CreditType,
-        RE_EARNING_CODE: model.EarningCode,
-        RE_EARNING_GROUP: model.EarningGroup,
-        RE_EVENT_TYPE: model.EventType,
-        RE_FIXED_VALUE_TYPE: model.FixedValueType,
-        RE_REASON_CODE: model.Reason,
-        RE_XML: model.XMLImport,
+    file_mapping: dict[re.Pattern, type[_DataType | legacy.XMLImport]] = {
+        RE_CREDIT_TYPE: legacy.CreditType,
+        RE_EARNING_CODE: legacy.EarningCode,
+        RE_EARNING_GROUP: legacy.EarningGroup,
+        RE_EVENT_TYPE: legacy.EventType,
+        RE_FIXED_VALUE_TYPE: legacy.FixedValueType,
+        RE_REASON_CODE: legacy.Reason,
+        RE_XML: legacy.XMLImport,
     }
     for pattern, resource_cls in file_mapping.items():
         if re.match(pattern, file.name):
@@ -64,23 +65,23 @@ def _file_cls(file: Path) -> type[_DataType | model.XMLImport]:
 
 
 async def deploy_from_path(
-    client: Tenant,
+    client: LegacyTenant,
     path: Path,
-) -> dict[Path, list[_DataType] | list[model.Pipeline]]:
+) -> dict[Path, list[_DataType] | list[legacy.Pipeline]]:
     """Deploy."""
     LOGGER.debug('Deploy %s', path)
     # This is to make sure we recognize each file before we attempt to deploy.
-    files_with_cls: list[tuple[Path, type[_DataType | model.XMLImport]]] = [
+    files_with_cls: list[tuple[Path, type[_DataType | legacy.XMLImport]]] = [
         (file, _file_cls(file))
         for file in sorted(path.iterdir(), key=lambda x: x.name)
         if file.is_file()
     ]
-    results: dict[Path, list[_DataType] | list[model.Pipeline]] = {}
+    results: dict[Path, list[_DataType] | list[legacy.Pipeline]] = {}
     for file, resource_cls in files_with_cls:
         if issubclass(resource_cls, _DataType):
             results[file] = await deploy_datatypes_from_file(client, file, resource_cls)
-        if resource_cls is model.XMLImport:
-            result: model.Pipeline = await deploy_xml(client, file)
+        if resource_cls is legacy.XMLImport:
+            result: legacy.Pipeline = await deploy_xml(client, file)
             if result.status != PipelineStatus.Successful:
                 break
             results[file] = [result]
@@ -88,7 +89,7 @@ async def deploy_from_path(
 
 
 async def deploy_datatypes_from_file(
-    client: Tenant,
+    client: LegacyTenant,
     file: Path,
     resource_cls: type[_DataType],
 ) -> list[_DataType]:
@@ -107,7 +108,7 @@ async def deploy_datatypes_from_file(
 
 
 async def deploy_datatype(
-    client: Tenant,
+    client: LegacyTenant,
     resource: _DataType,
 ) -> _DataType:
     """Deploy DataType."""
@@ -134,18 +135,18 @@ async def deploy_datatype(
 
 
 async def deploy_xml(
-    client: Tenant,
+    client: LegacyTenant,
     file: Path,
-) -> model.Pipeline:
+) -> legacy.Pipeline:
     """Deploy XML data."""
     LOGGER.info('Deploy XML data: %s', file)
 
-    job: model.XMLImport = model.XMLImport(
+    job: legacy.XMLImport = legacy.XMLImport(
         xml_file_name=file.name,
         xml_file_content=file.read_text('UTF-8'),
         update_existing_objects=True,
     )
-    result: model.Pipeline = await retry(
+    result: legacy.Pipeline = await retry(
         client.run_pipeline,
         job,
         exceptions=SAPConnectionError,

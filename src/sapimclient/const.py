@@ -3,6 +3,19 @@
 
 from enum import StrEnum
 
+REQUEST_TIMEOUT: int = 60
+VERIFY_SSL: bool = True
+
+LEGACY_HOSTNAME: str = 'https://{tenant}.callidusondemand.com'
+GCP_HOSTNAME: str = 'https://{tenant}.app.commissions.cloud.sap'
+
+
+class TenantType(StrEnum):
+    """StrEnum for TenantType."""
+
+    LEGACY = 'legacy'
+    GCP = 'gcp'
+
 
 class HTTPMethod(StrEnum):
     """StrEnum for supported HTTP methods."""

@@ -9,15 +9,16 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from sapimclient import Tenant, const, deploy, model
+from sapimclient import LegacyTenant, const, deploy
 from sapimclient.exceptions import SAPAlreadyExistsError
-from sapimclient.model.data_type import _DataType
+from sapimclient.model import legacy
+from sapimclient.model.legacy.data_type import _DataType
 
 LOGGER = logging.getLogger(__name__)
 
 
 def mockeffect_datatypes_from_file(
-    client: Tenant,  # noqa: ARG001
+    client: LegacyTenant,  # noqa: ARG001
     file: Path,  # noqa: ARG001
     resource_cls: type[_DataType],
 ) -> list[_DataType]:
@@ -28,9 +29,9 @@ def mockeffect_datatypes_from_file(
     ]
 
 
-def mockeffect_pipeline(*args: Any, **kwargs: Any) -> model.Pipeline:  # noqa: ARG001
+def mockeffect_pipeline(*args: Any, **kwargs: Any) -> legacy.Pipeline:  # noqa: ARG001
     """Mocked side effect of deploy_xml."""
-    return model.Pipeline(
+    return legacy.Pipeline(
         pipeline_run_seq='123',
         command='XMLImport',
         stage_type=const.XMLImportStages.XMLImport,
@@ -44,20 +45,20 @@ def mockeffect_pipeline(*args: Any, **kwargs: Any) -> model.Pipeline:  # noqa: A
 @pytest.mark.parametrize(
     ('src_file', 'resource_cls'),
     [
-        ('Credit Type.txt', model.CreditType),
-        ('Earning Code.txt', model.EarningCode),
-        ('Earning Group.txt', model.EarningGroup),
-        ('Event Type.txt', model.EventType),
-        ('Fixed Value Type.txt', model.FixedValueType),
-        ('Reason Code.txt', model.Reason),
-        ('plan.xml', model.XMLImport),
+        ('Credit Type.txt', legacy.CreditType),
+        ('Earning Code.txt', legacy.EarningCode),
+        ('Earning Group.txt', legacy.EarningGroup),
+        ('Event Type.txt', legacy.EventType),
+        ('Fixed Value Type.txt', legacy.FixedValueType),
+        ('Reason Code.txt', legacy.Reason),
+        ('plan.xml', legacy.XMLImport),
     ],
 )
 def test_file_class(
     dir_deploy: Path,
     tmp_path: Path,
     src_file: str,
-    resource_cls: type[_DataType | model.XMLImport],
+    resource_cls: type[_DataType | legacy.XMLImport],
 ) -> None:
     """Test file class function."""
     # Setup temporary directory
@@ -86,7 +87,7 @@ async def test_deploy_from_path(
     dir_deploy: Path,
     tmp_path: Path,
     mocker: MockerFixture,
-    tenant: Tenant,
+    tenant: LegacyTenant,
 ) -> None:
     """Test the deploy_from_path function."""
     # Setup temporary directory
@@ -126,7 +127,7 @@ async def test_deploy_from_path_pipeline_failure(
     dir_deploy: Path,
     tmp_path: Path,
     mocker: MockerFixture,
-    tenant: Tenant,
+    tenant: LegacyTenant,
 ) -> None:
     """Test the deploy_from_path function with pipeline failure."""
     # Setup temporary directory
@@ -146,19 +147,19 @@ async def test_deploy_from_path_pipeline_failure(
 @pytest.mark.parametrize(
     ('src_file', 'resource_cls'),
     [
-        ('Credit Type.txt', model.CreditType),
-        ('Earning Code.txt', model.EarningCode),
-        ('Earning Group.txt', model.EarningGroup),
-        ('Event Type.txt', model.EventType),
-        ('Fixed Value Type.txt', model.FixedValueType),
-        ('Reason Code.txt', model.Reason),
+        ('Credit Type.txt', legacy.CreditType),
+        ('Earning Code.txt', legacy.EarningCode),
+        ('Earning Group.txt', legacy.EarningGroup),
+        ('Event Type.txt', legacy.EventType),
+        ('Fixed Value Type.txt', legacy.FixedValueType),
+        ('Reason Code.txt', legacy.Reason),
     ],
 )
 async def test_deploy_datatypes_from_file(  # noqa: PLR0913
     dir_deploy: Path,
     tmp_path: Path,
     mocker: MockerFixture,
-    tenant: Tenant,
+    tenant: LegacyTenant,
     src_file: str,
     resource_cls: type[_DataType],
 ) -> None:
@@ -169,7 +170,7 @@ async def test_deploy_datatypes_from_file(  # noqa: PLR0913
 
     # Setup mocker
     def mockeffect(
-        client: Tenant,  # noqa: ARG001
+        client: LegacyTenant,  # noqa: ARG001
         resource: _DataType,
     ) -> _DataType:
         """Mockeffect of deploy_datatype."""
@@ -190,16 +191,16 @@ async def test_deploy_datatypes_from_file(  # noqa: PLR0913
 @pytest.mark.parametrize(
     'resource_cls',
     [
-        model.CreditType,
-        model.EarningCode,
-        model.EarningGroup,
-        model.EventType,
-        model.FixedValueType,
-        model.Reason,
+        legacy.CreditType,
+        legacy.EarningCode,
+        legacy.EarningGroup,
+        legacy.EventType,
+        legacy.FixedValueType,
+        legacy.Reason,
     ],
 )
 async def test_deploy_datatype_created(
-    tenant: Tenant,
+    tenant: LegacyTenant,
     mocker: MockerFixture,
     resource_cls: type[_DataType],
 ) -> None:
@@ -213,7 +214,7 @@ async def test_deploy_datatype_created(
         return resource
 
     mock = mocker.patch(
-        target='sapimclient.client.Tenant.create',
+        target='sapimclient.client.LegacyTenant.create',
         side_effect=mockeffect,
     )
 
@@ -226,16 +227,16 @@ async def test_deploy_datatype_created(
 @pytest.mark.parametrize(
     'resource_cls',
     [
-        model.CreditType,
-        model.EarningCode,
-        model.EarningGroup,
-        model.EventType,
-        model.FixedValueType,
-        model.Reason,
+        legacy.CreditType,
+        legacy.EarningCode,
+        legacy.EarningGroup,
+        legacy.EventType,
+        legacy.FixedValueType,
+        legacy.Reason,
     ],
 )
 async def test_deploy_datatype_updated(
-    tenant: Tenant,
+    tenant: LegacyTenant,
     mocker: MockerFixture,
     resource_cls: type[_DataType],
 ) -> None:
@@ -249,11 +250,11 @@ async def test_deploy_datatype_updated(
         return resource
 
     mock_create = mocker.patch(
-        target='sapimclient.client.Tenant.create',
+        target='sapimclient.client.LegacyTenant.create',
         side_effect=SAPAlreadyExistsError('bacon'),
     )
     mock_update = mocker.patch(
-        target='sapimclient.client.Tenant.update',
+        target='sapimclient.client.LegacyTenant.update',
         side_effect=mockeffect,
     )
 
@@ -267,7 +268,7 @@ async def test_deploy_datatype_updated(
 async def test_deploy_xml(
     dir_deploy: Path,
     tmp_path: Path,
-    tenant: Tenant,
+    tenant: LegacyTenant,
     mocker: MockerFixture,
 ) -> None:
     """Test the deploy_xml function."""
@@ -278,12 +279,12 @@ async def test_deploy_xml(
 
     # Setup mocker
     mock = mocker.patch(
-        target='sapimclient.client.Tenant.run_pipeline',
+        target='sapimclient.client.LegacyTenant.run_pipeline',
         return_value=mockeffect_pipeline(),
     )
 
     result = await deploy.deploy_xml(tenant, tmp_file)
-    assert isinstance(result, model.Pipeline)
+    assert isinstance(result, legacy.Pipeline)
     assert result.state == const.PipelineState.Done
     assert result.status == const.PipelineStatus.Successful
     assert mock.call_count == 1
@@ -292,7 +293,7 @@ async def test_deploy_xml(
 async def test_deploy_xml_failure(
     dir_deploy: Path,
     tmp_path: Path,
-    tenant: Tenant,
+    tenant: LegacyTenant,
     mocker: MockerFixture,
 ) -> None:
     """Test the deploy_xml function."""
@@ -302,16 +303,16 @@ async def test_deploy_xml_failure(
     shutil.copy(src_file, tmp_file)
 
     # Setup mocker
-    pipeline: model.Pipeline = mockeffect_pipeline()
+    pipeline: legacy.Pipeline = mockeffect_pipeline()
     pipeline.status = const.PipelineStatus.Failed
     pipeline.num_errors = 1
     mock = mocker.patch(
-        target='sapimclient.client.Tenant.run_pipeline',
+        target='sapimclient.client.LegacyTenant.run_pipeline',
         return_value=pipeline,
     )
 
     result = await deploy.deploy_xml(tenant, tmp_file)
-    assert isinstance(result, model.Pipeline)
+    assert isinstance(result, legacy.Pipeline)
     assert result.state == const.PipelineState.Done
     assert result.status == const.PipelineStatus.Failed
     assert mock.call_count == 1
@@ -320,7 +321,7 @@ async def test_deploy_xml_failure(
 async def test_deploy_xml_sleep(
     dir_deploy: Path,
     tmp_path: Path,
-    tenant: Tenant,
+    tenant: LegacyTenant,
     mocker: MockerFixture,
 ) -> None:
     """Test the deploy_xml function."""
@@ -335,16 +336,16 @@ async def test_deploy_xml_sleep(
 
     mock_sleep = mocker.patch('asyncio.sleep', return_value=None)
     mock_running = mocker.patch(
-        target='sapimclient.client.Tenant.run_pipeline',
+        target='sapimclient.client.LegacyTenant.run_pipeline',
         return_value=pipeline_running,
     )
     mock_done = mocker.patch(
-        target='sapimclient.client.Tenant.read',
+        target='sapimclient.client.LegacyTenant.read',
         return_value=mockeffect_pipeline(),
     )
 
     result = await deploy.deploy_xml(tenant, tmp_file)
-    assert isinstance(result, model.Pipeline)
+    assert isinstance(result, legacy.Pipeline)
     assert result.state == const.PipelineState.Done
     assert result.status == const.PipelineStatus.Successful
     assert mock_running.call_count == 1

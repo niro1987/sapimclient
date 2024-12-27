@@ -1,12 +1,12 @@
 """Pydantic models for Pipeline jobs."""
+# pylint: disable=duplicate-code
 
 from typing import ClassVar, Literal
 
 from pydantic import Field, computed_field, model_validator
 
 from sapimclient import const
-
-from .base import Endpoint
+from sapimclient.model.base import Endpoint
 
 STAGETABLES: dict[str, list[str]] = {
     'TransactionalData': [
@@ -36,25 +36,25 @@ STAGETABLES: dict[str, list[str]] = {
 }
 
 
-class _PipelineJob(Endpoint):
+class PipelineJob(Endpoint):
     """Base class for a Pipeline Job."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
+    attr_endpoint: ClassVar[str] = '/v2/pipelines'
     command: Literal['PipelineRun', 'Import', 'XMLImport']
     run_stats: bool = False
 
 
-class ResetFromValidate(_PipelineJob):
+class ResetFromValidate(PipelineJob):
     """Run a ResetFromValidate pipeline."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/pipelines/resetfromvalidate'
+    attr_endpoint: ClassVar[str] = '/v2/pipelines/resetfromvalidate'
     command: Literal['Import'] = 'Import'
     calendar_seq: str
     period_seq: str
     batch_name: str | None = None
 
 
-class Purge(_PipelineJob):
+class Purge(PipelineJob):
     """Run a Purge pipeline."""
 
     stage_type_seq: Literal[const.PipelineRunStages.Purge] = (
@@ -70,7 +70,7 @@ class Purge(_PipelineJob):
         return STAGETABLES[self.module]
 
 
-class XMLImport(_PipelineJob):
+class XMLImport(PipelineJob):
     """Run an XML Import pipeline."""
 
     command: Literal['XMLImport'] = 'XMLImport'
@@ -82,7 +82,7 @@ class XMLImport(_PipelineJob):
     update_existing_objects: bool = False
 
 
-class _PipelineRunJob(_PipelineJob):
+class _PipelineRunJob(PipelineJob):
     """Base class for a PipelineRun job."""
 
     command: Literal['PipelineRun'] = 'PipelineRun'
@@ -287,7 +287,7 @@ class UpdateAnalytics(_PipelineRunJob):
     )
 
 
-class _ImportJob(_PipelineJob):
+class _ImportJob(PipelineJob):
     """Base class for an Import job."""
 
     command: Literal['Import'] = 'Import'

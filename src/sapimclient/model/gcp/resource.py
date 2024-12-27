@@ -1,4 +1,5 @@
-"""Pydantic models for Resources."""
+"""Pydantic models for Resources (GCP Tenants)."""
+# pylint: disable=duplicate-code
 
 from datetime import datetime
 from typing import ClassVar, Literal
@@ -6,29 +7,28 @@ from typing import ClassVar, Literal
 from pydantic import Field, field_validator
 
 from sapimclient import const
-
-from .base import (
+from sapimclient.model.base import (
     AdjustmentContext,
     Assignment,
     BusinessUnitAssignment,
     Generic16Mixin,
     Generic32Mixin,
-    Reference,
-    Resource,
     RuleUsage,
     SalesTransactionAssignment,
     Value,
 )
 
+from .base import GCPResource, Reference
 
-class AppliedDeposit(Resource):
+
+class AppliedDeposit(GCPResource):
     """AppliedDeposit.
 
     Note:
         Supports only ``read`` operations.
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/appliedDeposits'
+    attr_endpoint: ClassVar[str] = '/v2/appliedDeposits'
     attr_seq: ClassVar[str] = 'applied_deposit_seq'
     applied_deposit_seq: str | None = None
     position: str | Reference
@@ -45,14 +45,14 @@ class AppliedDeposit(Resource):
     processing_unit: str | None = None
 
 
-class AuditLog(Resource):
+class AuditLog(GCPResource):
     """Audit Log.
 
     Note:
         Supports only ``read`` operations.
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/auditLogs'
+    attr_endpoint: ClassVar[str] = '/v2/auditLogs'
     attr_seq: ClassVar[str] = 'audit_log_seq'
     audit_log_seq: str | None = None
     event_date: datetime
@@ -66,14 +66,14 @@ class AuditLog(Resource):
     model_seq: str | None = None
 
 
-class Balance(Resource):
+class Balance(GCPResource):
     """Balance.
 
     Note:
         Supports only ``read`` operations.
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/balances'
+    attr_endpoint: ClassVar[str] = '/v2/balances'
     attr_seq: ClassVar[str] = 'balance_seq'
     balance_seq: str | None = None
     position: str | Reference
@@ -92,10 +92,10 @@ class Balance(Resource):
     processing_unit: str | None = None
 
 
-class BusinessUnit(Resource):
+class BusinessUnit(GCPResource):
     """Business Unit."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/businessUnits'
+    attr_endpoint: ClassVar[str] = '/v2/businessUnits'
     attr_seq: ClassVar[str] = 'business_unit_seq'
     business_unit_seq: str | None = None
     name: str
@@ -104,10 +104,10 @@ class BusinessUnit(Resource):
     processing_unit: str | None = None
 
 
-class Calendar(Resource):
+class Calendar(GCPResource):
     """Calendar."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/calendars'
+    attr_endpoint: ClassVar[str] = '/v2/calendars'
     attr_seq: ClassVar[str] = 'calendar_seq'
     calendar_seq: str | None = None
     name: str
@@ -119,10 +119,10 @@ class Calendar(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class CategoryClassifier(Resource):
+class CategoryClassifier(GCPResource):
     """categoryClassifier."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/categoryClassifiers'
+    attr_endpoint: ClassVar[str] = '/v2/categoryClassifiers'
     attr_seq: ClassVar[str] = 'category_classifiers_seq'
     category_classifiers_seq: str | None = None
     category_tree: str | Reference
@@ -135,10 +135,10 @@ class CategoryClassifier(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class CategoryTree(Resource):
+class CategoryTree(GCPResource):
     """CategoryTree."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/categoryTrees'
+    attr_endpoint: ClassVar[str] = '/v2/categoryTrees'
     attr_seq: ClassVar[str] = 'category_tree_seq'
     category_tree_seq: str | None = None
     name: str
@@ -153,13 +153,13 @@ class CategoryTree(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class Commission(Resource):
+class Commission(GCPResource):
     """Commission.
 
     TODO: No results.
     """
 
-    attr_endpoint: ClassVar[str] = 'api/v2/commissions'
+    attr_endpoint: ClassVar[str] = '/v2/commissions'
     attr_seq: ClassVar[str] = 'commission_seq'
     commission_seq: str | None = None
     position: str | Reference
@@ -178,10 +178,10 @@ class Commission(Resource):
     origin_type_id: str
 
 
-class Credit(Resource, Generic16Mixin):
+class Credit(GCPResource, Generic16Mixin):
     """Credit."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/credits'
+    attr_endpoint: ClassVar[str] = '/v2/credits'
     attr_seq: ClassVar[str] = 'credit_seq'
     credit_seq: str | None = None
     name: str
@@ -209,10 +209,10 @@ class Credit(Resource, Generic16Mixin):
     processing_unit: str | None = None
 
 
-class Deposit(Resource, Generic16Mixin):
+class Deposit(GCPResource, Generic16Mixin):
     """Deposit."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/deposits'
+    attr_endpoint: ClassVar[str] = '/v2/deposits'
     attr_seq: ClassVar[str] = 'deposit_seq'
     deposit_seq: str | None = None
     name: str
@@ -238,10 +238,10 @@ class Deposit(Resource, Generic16Mixin):
     model_seq: str | None = None
 
 
-class EarningGroupCode(Resource):
+class EarningGroupCode(GCPResource):
     """EarningGroupCode."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/earningGroupCodes'
+    attr_endpoint: ClassVar[str] = '/v2/earningGroupCodes'
     attr_seq: ClassVar[str] = 'earning_group_code_seq'
     earning_group_code_seq: str | None = None
     earning_group_code: str
@@ -252,10 +252,10 @@ class EarningGroupCode(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class GenericClassifier(Resource, Generic16Mixin):
+class GenericClassifier(GCPResource, Generic16Mixin):
     """Generic Classifier."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/genericClassifiers'
+    attr_endpoint: ClassVar[str] = '/v2/genericClassifiers'
     attr_seq: ClassVar[str] = 'generic_classifier_seq'
     generic_classifier_seq: str | None = None
     name: str | None = None
@@ -271,19 +271,19 @@ class GenericClassifier(Resource, Generic16Mixin):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class GenericClassifierType(Resource):
+class GenericClassifierType(GCPResource):
     """Generic Classifier Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/genericClassifierTypes'
+    attr_endpoint: ClassVar[str] = '/v2/genericClassifierTypes'
     attr_seq: ClassVar[str] = 'generic_classifier_type_seq'
     generic_classifier_type_seq: int | None = None
     name: str
 
 
-class GlobalFieldName(Resource):
+class GlobalFieldName(GCPResource):
     """Global Field Name."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/globalFieldNames'
+    attr_endpoint: ClassVar[str] = '/v2/globalFieldNames'
     attr_seq: ClassVar[str] = 'global_field_name_seq'
     global_field_name_seq: str | None = None
     name: str
@@ -291,7 +291,7 @@ class GlobalFieldName(Resource):
     global_field_name_data_type_length: int
 
 
-# class Group(Resource):
+# class Group(GCPResource):
 #     """Group."""
 
 #     attr_endpoint: ClassVar[str] = "api/v2/groups"
@@ -301,10 +301,10 @@ class GlobalFieldName(Resource):
 #     description: str | None = None
 
 
-class Incentive(Resource, Generic16Mixin):
+class Incentive(GCPResource, Generic16Mixin):
     """Incentive."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/incentives'
+    attr_endpoint: ClassVar[str] = '/v2/incentives'
     attr_seq: ClassVar[str] = 'incentive_seq'
     incentive_seq: str | None = None
     name: str | None = None
@@ -324,10 +324,10 @@ class Incentive(Resource, Generic16Mixin):
     business_units: list[str] | None = None
 
 
-class Measurement(Resource, Generic16Mixin):
+class Measurement(GCPResource, Generic16Mixin):
     """Measurement."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/measurements'
+    attr_endpoint: ClassVar[str] = '/v2/measurements'
     attr_seq: ClassVar[str] = 'measurement_seq'
     measurement_seq: str | None = None
     name: str
@@ -347,19 +347,19 @@ class Measurement(Resource, Generic16Mixin):
 class PrimaryMeasurement(Measurement):
     """Primary Measurement."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/primaryMeasurements'
+    attr_endpoint: ClassVar[str] = '/v2/primaryMeasurements'
 
 
 class SecondaryMeasurement(Measurement):
     """Secondary Measurement."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/secondaryMeasurements'
+    attr_endpoint: ClassVar[str] = '/v2/secondaryMeasurements'
 
 
-class Message(Resource):
+class Message(GCPResource):
     """Message."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/messages'
+    attr_endpoint: ClassVar[str] = '/v2/messages'
     attr_seq: ClassVar[str] = 'message_seq'
     message_seq: str | None = None
     message_key: str
@@ -379,10 +379,10 @@ class Message(Resource):
     credit: str | None = None
 
 
-class MessageLog(Resource):
+class MessageLog(GCPResource):
     """Message Log."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/messageLogs'
+    attr_endpoint: ClassVar[str] = '/v2/messageLogs'
     attr_seq: ClassVar[str] = 'message_log_seq'
     message_log_seq: str | None = None
     source_seq: str | None = None
@@ -391,10 +391,10 @@ class MessageLog(Resource):
     log_name: str
 
 
-class Participant(Resource, Generic16Mixin):
+class Participant(GCPResource, Generic16Mixin):
     """Participant."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/participants'
+    attr_endpoint: ClassVar[str] = '/v2/participants'
     attr_seq: ClassVar[str] = 'payee_seq'
     payee_seq: str | None = None
     payee_id: str
@@ -419,7 +419,7 @@ class Participant(Resource, Generic16Mixin):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-# class Payment(Resource):
+# class Payment(GCPResource):
 #     """Payment."""
 
 #     attr_endpoint: ClassVar[str] = "api/v2/payments"
@@ -439,10 +439,10 @@ class Participant(Resource, Generic16Mixin):
 #     processing_unit: str | None = None
 
 
-class PaymentMapping(Resource):
+class PaymentMapping(GCPResource):
     """Payment Mapping."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/paymentMappings'
+    attr_endpoint: ClassVar[str] = '/v2/paymentMappings'
     attr_seq: ClassVar[str] = 'payment_mapping_seq'
     payment_mapping_seq: str | None = None
     source_table_name: str
@@ -450,10 +450,10 @@ class PaymentMapping(Resource):
     payment_attribute: str
 
 
-class PaymentSummary(Resource):
+class PaymentSummary(GCPResource):
     """Payment Summary."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/paymentSummarys'
+    attr_endpoint: ClassVar[str] = '/v2/paymentSummarys'
     attr_seq: ClassVar[str] = 'payment_summary_seq'
     payment_summary_seq: str | None = None
     position: str | Reference
@@ -471,10 +471,10 @@ class PaymentSummary(Resource):
     processing_unit: str | None = None
 
 
-class Period(Resource):
+class Period(GCPResource):
     """Period."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/periods'
+    attr_endpoint: ClassVar[str] = '/v2/periods'
     attr_seq: ClassVar[str] = 'period_seq'
     period_seq: str | None = None
     name: str
@@ -490,10 +490,10 @@ class Period(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class PeriodType(Resource):
+class PeriodType(GCPResource):
     """Period Type."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/periodTypes'
+    attr_endpoint: ClassVar[str] = '/v2/periodTypes'
     attr_seq: ClassVar[str] = 'period_type_seq'
     period_type_seq: str | None = None
     name: str
@@ -504,10 +504,10 @@ class PeriodType(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class Pipeline(Resource):
+class Pipeline(GCPResource):
     """Pipeline."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/pipelines'
+    attr_endpoint: ClassVar[str] = '/v2/pipelines'
     attr_seq: ClassVar[str] = 'pipeline_run_seq'
     pipeline_run_seq: str | None = None
     command: (
@@ -572,10 +572,10 @@ class Pipeline(Resource):
         return int(value.removesuffix('%')) / 100 if value else None
 
 
-class PositionGroup(Resource):
+class PositionGroup(GCPResource):
     """Position."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/positionGroups'
+    attr_endpoint: ClassVar[str] = '/v2/positionGroups'
     attr_seq: ClassVar[str] = 'position_group_seq'
     position_group_seq: str | None = None
     name: str
@@ -585,10 +585,10 @@ class PositionGroup(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class PositionRelation(Resource):
+class PositionRelation(GCPResource):
     """Position Relation."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/positionRelations'
+    attr_endpoint: ClassVar[str] = '/v2/positionRelations'
     attr_seq: ClassVar[str] = 'position_relation_seq'
     position_relation_seq: str | None = None
     name: str | None = None
@@ -602,10 +602,10 @@ class PositionRelation(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class PostalCode(Resource, Generic16Mixin):
+class PostalCode(GCPResource, Generic16Mixin):
     """Postal Code."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/postalCodes'
+    attr_endpoint: ClassVar[str] = '/v2/postalCodes'
     attr_seq: ClassVar[str] = 'classifier_seq'
     classifier_seq: str | None = None
     classifier_id: str
@@ -620,20 +620,20 @@ class PostalCode(Resource, Generic16Mixin):
     business_units: list[str] | None = None
 
 
-class ProcessingUnit(Resource):
+class ProcessingUnit(GCPResource):
     """Processing Unit."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/processingUnits'
+    attr_endpoint: ClassVar[str] = '/v2/processingUnits'
     attr_seq: ClassVar[str] = 'processing_unit_seq'
     processing_unit_seq: str | None = None
     name: str
     description: str | None = None
 
 
-class Product(Resource, Generic16Mixin):
+class Product(GCPResource, Generic16Mixin):
     """Product."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/products'
+    attr_endpoint: ClassVar[str] = '/v2/products'
     attr_seq: ClassVar[str] = 'classifier_seq'
     classifier_seq: str | None = None
     classifier_id: str
@@ -650,10 +650,10 @@ class Product(Resource, Generic16Mixin):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class Quota(Resource):
+class Quota(GCPResource):
     """Quota."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/quotas'
+    attr_endpoint: ClassVar[str] = '/v2/quotas'
     attr_seq: ClassVar[str] = 'quota_seq'
     quota_seq: str | None = None
     calendar: str | Reference
@@ -669,10 +669,10 @@ class Quota(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class SalesOrder(Resource, Generic16Mixin):
+class SalesOrder(GCPResource, Generic16Mixin):
     """Sales Order."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/salesOrders'
+    attr_endpoint: ClassVar[str] = '/v2/salesOrders'
     attr_seq: ClassVar[str] = 'sales_order_seq'
     sales_order_seq: str | None = None
     order_id: str
@@ -685,10 +685,10 @@ class SalesOrder(Resource, Generic16Mixin):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class SalesTransaction(Resource, Generic32Mixin):
+class SalesTransaction(GCPResource, Generic32Mixin):
     """Sales Transaction."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/salesTransactions'
+    attr_endpoint: ClassVar[str] = '/v2/salesTransactions'
     attr_seq: ClassVar[str] = 'sales_transaction_seq'
     sales_transaction_seq: str | None = None
     sales_order: str | Reference
@@ -730,10 +730,10 @@ class SalesTransaction(Resource, Generic32Mixin):
     modification_date: datetime | None = None
 
 
-class User(Resource):
+class User(GCPResource):
     """User."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/users'
+    attr_endpoint: ClassVar[str] = '/v2/users'
     attr_seq: ClassVar[str] = 'user_seq'
     user_seq: str | None = None
     id: str
@@ -749,10 +749,10 @@ class User(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class PlanComponent(Resource):
+class PlanComponent(GCPResource):
     """Plan."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/planComponents'
+    attr_endpoint: ClassVar[str] = '/v2/planComponents'
     attr_seq: ClassVar[str] = 'plan_component_seq'
     plan_component_seq: str | None = None
     name: str
@@ -768,10 +768,10 @@ class PlanComponent(Resource):
     modified_by: str | None = Field(None, exclude=True, repr=False)
 
 
-class Rule(Resource):
+class Rule(GCPResource):
     """Rule."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/rules'
+    attr_endpoint: ClassVar[str] = '/v2/rules'
     attr_seq: ClassVar[str] = 'rule_seq'
     rule_seq: str | None = None
     name: str
