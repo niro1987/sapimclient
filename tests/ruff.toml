@@ -4,6 +4,7 @@ extend = "../pyproject.toml"
 [lint]
 ignore = [
     "S101",    # Assert detected
+    "S106",    # Hardcoded Password
     "SLF001",  # Private member accessed
     "PT011",   # Too broad exception
     "PLR2004", # Magic value used in comparison

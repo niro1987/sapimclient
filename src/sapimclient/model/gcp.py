@@ -1,39 +1,168 @@
-"""Pydantic models for Resources (GCP Tenants)."""
-# pylint: disable=duplicate-code
+"""Pydantic models for Python SAP Incentive Management Client (GCP Tenants)."""
+# pylint: disable=duplicate-code,too-many-lines
 
+from __future__ import annotations
+
+import logging
 from datetime import datetime
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Generic, Literal, TypeVar, get_args
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 
 from sapimclient import const
-from sapimclient.model.base import (
+
+from .base import (
     AdjustmentContext,
     Assignment,
     BusinessUnitAssignment,
     Generic16Mixin,
     Generic32Mixin,
+    Reference,
+    Resource,
     RuleUsage,
+    RuleUsageList,
     SalesTransactionAssignment,
     Value,
+    ValueClass,
 )
 
-from .base import GCPResource, Reference
+__all__ = [
+    'AppliedDeposit',
+    'AuditLog',
+    'Balance',
+    'BusinessUnit',
+    'Calendar',
+    'Category',
+    'CategoryClassifier',
+    'CategoryTree',
+    'Commission',
+    'CommissionRule',
+    'Credit',
+    'CreditRule',
+    'CreditType',
+    'Deposit',
+    'DepositRule',
+    'EarningCode',
+    'EarningGroup',
+    'EarningGroupCode',
+    'EventType',
+    'FixedValue',
+    'FixedValueType',
+    'FixedValueVariable',
+    'Formula',
+    'GCPReference',
+    'GCPResource',
+    'GenericClassifier',
+    'GenericClassifierType',
+    'GlobalFieldName',
+    'Incentive',
+    'LookUpTableVariable',
+    'Measurement',
+    'MeasurementRule',
+    'Message',
+    'MessageLog',
+    'Participant',
+    'PaymentMapping',
+    'PaymentSummary',
+    'Period',
+    'PeriodType',
+    'Pipeline',
+    'Plan',
+    'PlanComponent',
+    'Position',
+    'PositionGroup',
+    'PositionRelation',
+    'PositionRelationType',
+    'PostalCode',
+    'PrimaryMeasurement',
+    'ProcessingUnit',
+    'Product',
+    'Quota',
+    'RateTable',
+    'RateTableVariable',
+    'Reason',
+    'RelationalMDLT',
+    'Rule',
+    'SalesOrder',
+    'SalesTransaction',
+    'SecondaryMeasurement',
+    'StatusCode',
+    'Territory',
+    'TerritoryVariable',
+    'Title',
+    'UnitType',
+    'User',
+    'Variable',
+]
+
+LOGGER = logging.getLogger(__name__)
+
+
+class GCPResource(Resource):
+    """Base class for GCP resources."""
+
+    attr_endpoint_prefix: ClassVar[str] = '/mtsvc/tcmp/rest'
+
+
+T = TypeVar('T', bound=GCPResource)
+
+
+class GCPReference(Reference, Generic[T]):
+    """Expanded reference to a GCP resource.
+
+    Parameters:
+        seq (str): System unique identifier for the referred resource.
+        resource_cls: type[Resource]: Class of the referred resource.
+        exra (dict[str, Any]): Extra attributes of the resource.
+    """
+
+    resource_cls: type[T]
+
+    @model_validator(mode='before')
+    @classmethod
+    def resolve_reference(cls, values: dict[str, Any]) -> dict[str, Any]:
+        """Resolve reference."""
+        # Example value:
+        # {
+        #   'ruleElementOwnerSeq': 'spam',
+        #   'name': 'bacon'
+        # }
+
+        # Get resource_cls annotations
+        type_args: tuple[type[GCPResource], ...] = get_args(
+            cls.model_fields['resource_cls'].annotation,
+        )
+
+        # There should always be one type argument
+        if len(type_args) != 1:
+            raise ValueError('Invalid Reference Type Annotation')
+
+        # Get resource_cls
+        resource_cls: type[GCPResource] = type_args[0]
+
+        # First key is the seq
+        seq: str = values.pop(next(iter(values)))
+
+        return {
+            'seq': seq,
+            'resource_cls': resource_cls,
+            'extra': values,
+        }
 
 
 class AppliedDeposit(GCPResource):
     """AppliedDeposit.
 
     Note:
-        Supports only ``read`` operations.
+        Supports only read operations.
     """
 
     attr_endpoint: ClassVar[str] = '/v2/appliedDeposits'
     attr_seq: ClassVar[str] = 'applied_deposit_seq'
     applied_deposit_seq: str | None = None
-    position: str | Reference
-    payee: str | Reference
-    period: str | Reference
+    position: GCPReference[Position] | str
+    payee: GCPReference[Participant] | str
+    period: GCPReference[Period] | str
     earning_group_id: str
     earning_code_id: str
     trial_pipeline_run: str
@@ -76,9 +205,9 @@ class Balance(GCPResource):
     attr_endpoint: ClassVar[str] = '/v2/balances'
     attr_seq: ClassVar[str] = 'balance_seq'
     balance_seq: str | None = None
-    position: str | Reference
-    payee: str | Reference
-    period: str | Reference
+    position: GCPReference[Position] | str
+    payee: GCPReference[Participant] | str
+    period: GCPReference[Period] | str
     earning_group_id: str
     earning_code_id: str
     trial_pipeline_run: str
@@ -112,8 +241,8 @@ class Calendar(GCPResource):
     calendar_seq: str | None = None
     name: str
     description: str | None = None
-    minor_period_type: str | Reference | None = None
-    major_period_type: str | Reference | None = None
+    minor_period_type: GCPReference[PeriodType] | str | None = None
+    major_period_type: GCPReference[PeriodType] | str | None = None
     created_by: str | None = Field(None, exclude=True, repr=False)
     create_date: datetime | None = Field(None, exclude=True, repr=False)
     modified_by: str | None = Field(None, exclude=True, repr=False)
@@ -125,9 +254,9 @@ class CategoryClassifier(GCPResource):
     attr_endpoint: ClassVar[str] = '/v2/categoryClassifiers'
     attr_seq: ClassVar[str] = 'category_classifiers_seq'
     category_classifiers_seq: str | None = None
-    category_tree: str | Reference
-    category: str | Reference
-    classifier: str | Reference
+    category_tree: GCPReference[CategoryTree] | str
+    category: GCPReference[Category] | str
+    classifier: GCPReference[GenericClassifier] | str
     effective_start_date: datetime
     effective_end_date: datetime
     created_by: str | None = Field(None, exclude=True, repr=False)
@@ -162,11 +291,11 @@ class Commission(GCPResource):
     attr_endpoint: ClassVar[str] = '/v2/commissions'
     attr_seq: ClassVar[str] = 'commission_seq'
     commission_seq: str | None = None
-    position: str | Reference
-    payee: str | Reference
-    period: str | Reference
-    incentive: str | Reference
-    credit: str | Reference
+    position: GCPReference[Position] | str
+    payee: GCPReference[Participant] | str
+    period: GCPReference[Period] | str
+    incentive: GCPReference[Incentive] | str
+    credit: GCPReference[Credit] | str
     pipeline_run: str
     pipeline_run_date: datetime
     value: Value
@@ -185,17 +314,17 @@ class Credit(GCPResource, Generic16Mixin):
     attr_seq: ClassVar[str] = 'credit_seq'
     credit_seq: str | None = None
     name: str
-    position: str | Reference
-    payee: str | Reference
-    sales_order: str | Reference
-    sales_transaction: str | Reference | None = None
-    period: str | Reference
-    credit_type: str | Reference
+    position: GCPReference[Position] | str
+    payee: GCPReference[Participant] | str
+    sales_order: GCPReference[SalesOrder] | str
+    sales_transaction: GCPReference[SalesTransaction] | str | None = None
+    period: GCPReference[Period] | str
+    credit_type: GCPReference[CreditType] | str
     value: Value
     preadjusted_value: Value
     origin_type_id: str
-    reason: str | Reference | None = None
-    rule: str | Reference | None = None
+    reason: GCPReference[Reason] | str | None = None
+    rule: GCPReference[Rule] | str | None = None
     is_rollable: bool | None = None
     roll_date: datetime | None = None
     is_held: bool | None = None
@@ -218,15 +347,15 @@ class Deposit(GCPResource, Generic16Mixin):
     name: str
     earning_group_id: str
     earning_code_id: str
-    payee: str | Reference
-    position: str | Reference
-    period: str | Reference
+    payee: GCPReference[Participant] | str
+    position: GCPReference[Position] | str
+    period: GCPReference[Period] | str
     value: Value
     preadjusted_value: Value
     origin_type_id: str
     reason: str | None = None
     business_units: list[str] | None = None
-    rule: str | Reference | None = None
+    rule: GCPReference[Rule] | str | None = None
     deposit_date: datetime | None = None
     is_held: bool | None = None
     release_date: datetime | None = None
@@ -310,10 +439,10 @@ class Incentive(GCPResource, Generic16Mixin):
     name: str | None = None
     quota: Value | None = None
     attainment: Value | None = None
-    position: str | Reference
-    payee: str | Reference
-    period: str | Reference
-    rule: str | Reference | None = None
+    position: GCPReference[Position] | str
+    payee: GCPReference[Participant] | str
+    period: GCPReference[Period] | str
+    rule: GCPReference[Rule] | str | None = None
     value: Value
     release_date: datetime | None = None
     pipeline_run: str | None = None
@@ -331,10 +460,10 @@ class Measurement(GCPResource, Generic16Mixin):
     attr_seq: ClassVar[str] = 'measurement_seq'
     measurement_seq: str | None = None
     name: str
-    position: str | Reference
-    payee: str | Reference
-    period: str | Reference
-    rule: str | Reference | None = None
+    position: GCPReference[Position] | str
+    payee: GCPReference[Participant] | str
+    period: GCPReference[Period] | str
+    rule: GCPReference[Rule] | str | None = None
     value: Value
     pipeline_run: str | None = None
     pipeline_run_date: datetime | None = None
@@ -368,13 +497,13 @@ class Message(GCPResource):
     sub_category: str
     message_log: str
     module: str
-    rule: str | Reference | None = None
-    payee: str | Reference | None = None
+    rule: GCPReference[Rule] | str | None = None
+    payee: GCPReference[Participant] | str | None = None
     message_type: str
-    run_period: str | Reference | None = None
+    run_period: GCPReference[Period] | str | None = None
     object_seq: str | None = None
     sales_transaction: str | None = None
-    position: str | Reference | None = None
+    position: GCPReference[Position] | str | None = None
     category: str | None = None
     credit: str | None = None
 
@@ -411,7 +540,7 @@ class Participant(GCPResource, Generic16Mixin):
     salary: Value | None = None
     user_id: str
     preferred_language: str | None = None
-    event_calendar: str | Reference | None = None
+    event_calendar: GCPReference[Calendar] | str | None = None
     tax_id: str | None = None
     business_units: list[str] | None = None
     created_by: str | None = Field(None, exclude=True, repr=False)
@@ -425,9 +554,9 @@ class Participant(GCPResource, Generic16Mixin):
 #     attr_endpoint: ClassVar[str] = "api/v2/payments"
 #     attr_seq: ClassVar[str] = "payment_seq"
 #     payment_seq: str | None = None
-#     position: str | Reference
-#     payee: str | Reference
-#     period: str | Reference
+#     position: GCPReference[Position] | str
+#     payee: GCPReference[Participant] | str
+#     period: GCPReference[Period] | str
 #     earning_group_id: str
 #     earning_code_id: str
 #     trial_pipeline_run: str | None = None
@@ -456,9 +585,9 @@ class PaymentSummary(GCPResource):
     attr_endpoint: ClassVar[str] = '/v2/paymentSummarys'
     attr_seq: ClassVar[str] = 'payment_summary_seq'
     payment_summary_seq: str | None = None
-    position: str | Reference
-    participant: str | Reference
-    period: str | Reference
+    position: GCPReference[Position] | str
+    participant: GCPReference[Participant] | str
+    period: GCPReference[Period] | str
     earning_group_id: str
     pipeline_run: str | None = None
     pipeline_run_date: datetime | None = None
@@ -481,10 +610,10 @@ class Period(GCPResource):
     short_name: str
     start_date: datetime
     end_date: datetime
-    period_type: str | Reference
-    calendar: str | Reference
+    period_type: GCPReference[PeriodType] | str
+    calendar: GCPReference[Calendar] | str
     description: str | None = None
-    parent: str | Reference | None = None
+    parent: GCPReference[Period] | str | None = None
     created_by: str | None = Field(None, exclude=True, repr=False)
     create_date: datetime | None = Field(None, exclude=True, repr=False)
     modified_by: str | None = Field(None, exclude=True, repr=False)
@@ -532,7 +661,7 @@ class Pipeline(GCPResource):
     state: const.PipelineState
     user_id: str
     processing_unit: str | None = None
-    period: str | Reference | None = None
+    period: GCPReference[Period] | str | None = None
     description: str | None = None
     status: const.PipelineStatus | None = None
     run_progress: float | None = None
@@ -594,9 +723,9 @@ class PositionRelation(GCPResource):
     name: str | None = None
     effective_start_date: datetime
     effective_end_date: datetime
-    parent_position: str | Reference
+    parent_position: GCPReference[Position] | str
     position_relation_type: str
-    child_position: str | Reference
+    child_position: GCPReference[Position] | str
     created_by: str | None = Field(None, exclude=True, repr=False)
     create_date: datetime | None = Field(None, exclude=True, repr=False)
     modified_by: str | None = Field(None, exclude=True, repr=False)
@@ -656,12 +785,12 @@ class Quota(GCPResource):
     attr_endpoint: ClassVar[str] = '/v2/quotas'
     attr_seq: ClassVar[str] = 'quota_seq'
     quota_seq: str | None = None
-    calendar: str | Reference
+    calendar: GCPReference[Calendar] | str
     name: str
     description: str | None = None
     effective_start_date: datetime
     effective_end_date: datetime
-    unit_type: str | Reference
+    unit_type: GCPReference[UnitType] | str
     model_seq: str | None = None
     business_units: list[str] | None = None
     created_by: str | None = Field(None, exclude=True, repr=False)
@@ -691,10 +820,10 @@ class SalesTransaction(GCPResource, Generic32Mixin):
     attr_endpoint: ClassVar[str] = '/v2/salesTransactions'
     attr_seq: ClassVar[str] = 'sales_transaction_seq'
     sales_transaction_seq: str | None = None
-    sales_order: str | Reference
+    sales_order: GCPReference[SalesOrder] | str
     line_number: Value
     sub_line_number: Value
-    event_type: str | Reference
+    event_type: GCPReference[EventType] | str
     product_id: str | None = None
     product_name: str | None = None
     product_description: str | None = None
@@ -757,7 +886,7 @@ class PlanComponent(GCPResource):
     plan_component_seq: str | None = None
     name: str
     description: str | None = None
-    calendar: str | Reference
+    calendar: GCPReference[Calendar] | str
     effective_start_date: datetime
     effective_end_date: datetime
     business_units: list[str] | None = None
@@ -776,7 +905,7 @@ class Rule(GCPResource):
     rule_seq: str | None = None
     name: str
     description: str | None = None
-    calendar: str | Reference
+    calendar: GCPReference[Calendar] | str
     effective_start_date: datetime
     effective_end_date: datetime
     business_unit: list[BusinessUnitAssignment] | BusinessUnitAssignment | None = None
@@ -802,3 +931,291 @@ class DepositRule(Rule):
 
 class MeasurementRule(Rule):
     """Alias for Rule."""
+
+
+class UnitType(GCPResource):
+    """Unit Type."""
+
+    attr_endpoint: ClassVar[str] = '/v2/unitTypes'
+    unit_type_seq: str
+    name: str
+    symbol: str | None = None
+    scale: int
+    reporting_scale: int
+    position_of_symbol: int
+    currency_locale: str | None = None
+    value_class: ValueClass
+    formatting: str | None = None
+
+
+class _RuleElementOwner(GCPResource):
+    """Base class for Rule Element Owner resources.
+
+    TODO: ``variable_assignments`` should be ``GCPReference``?
+    TODO: ``business_units`` should be ``GCPReference``?
+    """
+
+    attr_seq: ClassVar[str] = 'rule_element_owner_seq'
+    rule_element_owner_seq: str | None = None
+    name: str
+    description: str | None = None
+    effective_start_date: datetime | None = None
+    effective_end_date: datetime | None = None
+    create_date: datetime | None = Field(None, exclude=True, repr=False)
+    created_by: str | None = Field(None, exclude=True, repr=False)
+    modified_by: str | None = Field(None, exclude=True, repr=False)
+    business_units: list[str] | None = None
+    variable_assignments: list[Assignment] | Assignment | None = None
+    model_seq: str | None = None
+
+
+class Plan(_RuleElementOwner):
+    """Plan.
+
+    Parameters:
+        rule_element_owner_seq (str | None): System Unique Identifier.
+        name (str): Name of the plan.
+        description (str | None): Description of the plan.
+        calendar (GCPReference[Calendar] | str): Reference to ``Calendar`` associated
+            with the plan.
+        effective_start_date (datetime): Effective start date of the plan
+            version.
+        effective_end_date (datetime): Effective end date of the plan version.
+        create_date (datetime | None): Date when plan was created.
+        created_by (str | None): User ID that created the plan.
+        modified_by (str | None): User ID that last modified the plan.
+        business_units (list[str] | None): Business units associated with the
+            plan.
+        variable_assignments (list[Assignment] | Assignment | None): Variable
+            Assignments on the plan level.
+        model_seq (str | None): System Unique Identifier for the model.
+
+    TODO: Add GenericMixin?
+    TODO: is ``variable_assignments`` expandable?
+    """
+
+    attr_endpoint: ClassVar[str] = '/v2/plans'
+    calendar: GCPReference[Calendar] | str
+
+
+class Title(_RuleElementOwner, Generic16Mixin):
+    """Title."""
+
+    attr_endpoint: ClassVar[str] = '/v2/titles'
+    plan: GCPReference[Plan] | str | None = None
+
+
+class Position(_RuleElementOwner, Generic16Mixin):
+    """Position.
+
+    TODO: ``target_compensation`` is ``Value``?
+    TODO: ``processing_unit`` should be ``GCPReference``?
+    """
+
+    attr_endpoint: ClassVar[str] = '/v2/positions'
+    payee: GCPReference[Participant] | str | None = None
+    plan: GCPReference[Plan] | str | None = None
+    title: GCPReference[Title] | str | None = None
+    manager: GCPReference[Position] | str | None = None
+    position_group: GCPReference[PositionGroup] | str | None = None
+    target_compensation: dict | None = None
+    credit_start_date: datetime | None = None
+    credit_end_date: datetime | None = None
+    processing_start_date: datetime | None = None
+    processing_end_date: datetime | None = None
+    processing_unit: str | None = None
+
+
+class _RuleElement(GCPResource):
+    """Base class for Rule Element resources.
+
+    TODO: What does ``owning_element`` represent?
+    """
+
+    attr_seq: ClassVar[str] = 'rule_element_seq'
+    rule_element_seq: str | None = None
+    name: str
+    description: str | None = None
+    calendar: GCPReference[Calendar] | str | None = None
+    effective_start_date: datetime
+    effective_end_date: datetime
+    business_units: list[str] | None = None
+    not_allow_update: bool = False
+    reference_class_type: str | None = None
+    return_type: str | None = None
+    owning_element: str | None = None
+    rule_usage: RuleUsageList | RuleUsage | None = None
+    input_signature: str | None = None
+    created_by: str | None = Field(None, exclude=True, repr=False)
+    create_date: datetime | None = Field(None, exclude=True, repr=False)
+    modified_by: str | None = Field(None, exclude=True, repr=False)
+    model_seq: str | None = None
+
+
+class Category(_RuleElement, Generic16Mixin):
+    """Category."""
+
+    attr_endpoint: ClassVar[str] = '/v2/categories'
+    owner: GCPReference[CategoryTree] | str
+    parent: GCPReference[Category] | str | None = None
+
+
+class FixedValue(_RuleElement):
+    """Fixed Value."""
+
+    attr_endpoint: ClassVar[str] = '/v2/fixedValues'
+    value: Value | None = None
+    fixed_value_type: GCPReference[FixedValueType] | str | None = None
+    period_type: GCPReference[PeriodType] | str | None = None
+
+
+class Formula(_RuleElement):
+    """Formula."""
+
+    attr_endpoint: ClassVar[str] = '/v2/formulas'
+
+
+class FixedValueVariable(_RuleElement):
+    """Fixed Value Variable."""
+
+    attr_endpoint: ClassVar[str] = '/v2/fixedValueVariables'
+    default_element: GCPReference[FixedValue] | str | None = None
+    required_period_type: GCPReference[PeriodType] | str | None = None
+
+
+class RateTable(_RuleElement):
+    """Rate Table."""
+
+    attr_endpoint: ClassVar[str] = '/v2/rateTables'
+
+
+class RateTableVariable(_RuleElement):
+    """Rate Table Variable."""
+
+    attr_endpoint: ClassVar[str] = '/v2/rateTableVariables'
+    default_element: GCPReference[RateTable] | str | None = None
+    required_period_type: GCPReference[PeriodType] | str | None = None
+
+
+class RelationalMDLT(_RuleElement):
+    """Relational MDLT (Lookup Table).
+
+    Multi Dimensional Lookup Table.
+
+    TODO: Are ``dimensions`` and ``indices`` expandable?
+            Yes
+    TODO: What does ``expression_type_counts`` represent?
+    """
+
+    attr_endpoint: ClassVar[str] = '/v2/relationalMDLTs'
+    return_unit_type: GCPReference[UnitType] | str | None = None
+    treat_null_as_zero: bool | None = None
+    dimensions: list[Assignment] | Assignment | None = None
+    indices: list[Assignment] | Assignment | None = None
+    expression_type_counts: str | None = None
+
+
+class LookUpTableVariable(_RuleElement):
+    """LookUp Table Variable."""
+
+    attr_endpoint: ClassVar[str] = '/v2/lookUpTableVariables'
+    default_element: GCPReference[RelationalMDLT] | str | None = None
+    required_period_type: GCPReference[PeriodType] | str | None = None
+
+
+class Territory(_RuleElement):
+    """Territory."""
+
+    attr_endpoint: ClassVar[str] = '/v2/territories'
+
+
+class TerritoryVariable(_RuleElement):
+    """Territory Variable."""
+
+    attr_endpoint: ClassVar[str] = '/v2/territoryVariables'
+    default_element: GCPReference[Territory] | str | None = None
+    required_period_type: GCPReference[PeriodType] | str | None = None
+
+
+class Variable(_RuleElement):
+    """Variable.
+
+    TODO: ``default_element`` can refer FixedValue, RateTable or RelationalMDLT.
+    """
+
+    attr_endpoint: ClassVar[str] = '/v2/variables'
+    default_element: str | None = None
+    required_period_type: GCPReference[PeriodType] | str | None = None
+
+
+class DataType(GCPResource):
+    """Base class for Legacy DataType resources."""
+
+    attr_seq: ClassVar[str] = 'data_type_seq'
+    data_type_seq: str | None = None
+    description: str | None = None
+    create_date: datetime | None = Field(None, exclude=True, repr=False)
+    created_by: str | None = Field(None, exclude=True, repr=False)
+    modified_by: str | None = Field(None, exclude=True, repr=False)
+    not_allow_update: bool | None = None
+
+
+class CreditType(DataType):
+    """Credit Type."""
+
+    attr_endpoint: ClassVar[str] = '/v2/creditTypes'
+    credit_type_id: str = Field(validation_alias=AliasChoices('creditTypeId', 'id'))
+
+
+class EarningCode(DataType):
+    """Earning Code."""
+
+    attr_endpoint: ClassVar[str] = '/v2/earningCodes'
+    earning_code_id: str = Field(validation_alias=AliasChoices('earningCodeId', 'id'))
+
+
+class EarningGroup(DataType):
+    """Earning Group."""
+
+    attr_endpoint: ClassVar[str] = '/v2/earningGroups'
+    earning_group_id: str = Field(validation_alias=AliasChoices('earningGroupId', 'id'))
+
+
+class EventType(DataType):
+    """Event Type."""
+
+    attr_endpoint: ClassVar[str] = '/v2/eventTypes'
+    event_type_id: str = Field(validation_alias=AliasChoices('eventTypeId', 'id'))
+
+
+class FixedValueType(DataType):
+    """Fixed Value Type."""
+
+    attr_endpoint: ClassVar[str] = '/v2/fixedValueTypes'
+    fixed_value_type_id: str = Field(
+        validation_alias=AliasChoices('fixedValueTypeId', 'id'),
+    )
+
+
+class PositionRelationType(DataType):
+    """Position Relation Type."""
+
+    attr_endpoint: ClassVar[str] = '/v2/positionRelationTypes'
+    name: str
+
+
+class Reason(DataType):
+    """Reason."""
+
+    attr_endpoint: ClassVar[str] = '/v2/reasons'
+    reason_id: str = Field(validation_alias=AliasChoices('reasonId', 'id'))
+
+
+class StatusCode(DataType):
+    """Status Code."""
+
+    attr_endpoint: ClassVar[str] = '/v2/statusCodes'
+    status: str
+    name: str | None = None
+    type: str | None = None
+    is_active: bool = True

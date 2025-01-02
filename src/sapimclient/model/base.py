@@ -7,13 +7,14 @@ all other models.
 
 from datetime import datetime
 from inspect import isclass
-from typing import ClassVar, Literal, get_args, get_origin
+from typing import Any, ClassVar, Literal, get_args, get_origin
 
 from pydantic import (
     AliasGenerator,
     BaseModel,
     ConfigDict,
     Field,
+    model_serializer,
 )
 from pydantic.alias_generators import to_camel
 from pydantic.fields import FieldInfo
@@ -121,7 +122,7 @@ class Endpoint(_BaseModel):
             Used by the client to construct the full request url.
     """
 
-    attr_endpoint_prefix: ClassVar[str] = ''
+    attr_endpoint_prefix: ClassVar[str]
     attr_endpoint: ClassVar[str]
 
     @classmethod
@@ -288,6 +289,30 @@ class Expandable(_BaseModel):
     ``Expandable`` will be added to the ``expand`` parameter
     when sending requests to the tenant.
     """
+
+
+class Reference(Expandable):
+    """Expanded reference to a Resource.
+
+    Parameters:
+        seq (str): System unique identifier of the resource.
+        resource_cls: type[Resource]: Class of the resource.
+        extra (dict[str, Any]): Extra attributes of the resource.
+    """
+
+    seq: str
+    resource_cls: type[Resource]
+    extra: dict[str, Any]
+
+    def __str__(self) -> str:
+        """Return seq value."""
+        return self.seq
+
+    @model_serializer
+    def serialize(self) -> str:
+        """Serialize to seq value."""
+        # https://docs.pydantic.dev/2.10/concepts/serialization/#custom-serializers
+        return self.seq
 
 
 class SalesTransactionAssignment(Expandable, Generic16Mixin):

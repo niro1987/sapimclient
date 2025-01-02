@@ -9,201 +9,219 @@ import pytest
 from aiohttp import ClientError
 from aioresponses import aioresponses
 
-from sapimclient import LegacyTenant, exceptions
-from sapimclient.const import HTTPMethod
-from sapimclient.model import Endpoint, legacy
-from sapimclient.model.legacy.base import LegacyResource, Reference
+from sapimclient import client, const, exceptions
+from sapimclient.model.legacy import (
+    LegacyReference,
+    LegacyResource,
+    Pipeline,
+    PipelineJob,
+)
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
+
+
+mock_url = re.compile(r'^.*/v2/eggs.*$')
 
 
 class MockResource(LegacyResource):
     """MockResource resource."""
 
-    attr_endpoint: ClassVar[str] = 'api/v2/eggs'
+    attr_endpoint: ClassVar[str] = '/v2/eggs'
     attr_seq: ClassVar[str] = 'egg_seq'
     egg_seq: str | None = None
     name: str
-    ref: str | Reference | None = None
+    ref: str | LegacyReference | None = None
 
 
-mock_url = re.compile(r'^.*api/v2/eggs.*$')
+def test_tenant_hostname(legacy_tenant: client.Tenant) -> None:
+    """Test hostname."""
+    assert legacy_tenant.hostname == 'https://test.callidusondemand.com'
 
 
-async def test_tenant_request(
-    tenant: LegacyTenant,
+def test_tenant_host_type(legacy_tenant: client.Tenant) -> None:
+    """Test Host Type."""
+    assert legacy_tenant.host_type == const.TenantType.LEGACY
+
+
+async def test_tenant_request_happy_flow(
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
-    """Test tenant request happy flow."""
+    """Test _request method happy flow."""
     mocked.get(
-        url=f'{tenant.hostname}/spamm',
+        url=f'{legacy_tenant.hostname}/spamm',
         status=200,
         payload={'eggs': 'bacon'},
     )
 
-    response = await tenant._request(method=HTTPMethod.GET, uri='/spamm')
+    response = await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/spamm')
     assert response == {'eggs': 'bacon'}
 
 
 async def test_tenant_request_error_timeout(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant request exceed timeout."""
     mocked.get(
-        url=f'{tenant.hostname}/spamm',
+        url=f'{legacy_tenant.hostname}/spamm',
         exception=TimeoutError(),
     )
-    with pytest.raises(exceptions.SAPConnectionError):
-        await tenant._request(method=HTTPMethod.GET, uri='spamm')
+    with pytest.raises(exceptions.SAPConnectionError) as err:
+        await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/spamm')
+    assert 'Timeout while connecting' in str(err)
 
     mocked.get(
-        url=f'{tenant.hostname}/eggs',
+        url=f'{legacy_tenant.hostname}/eggs',
         timeout=True,
     )
-    with pytest.raises(exceptions.SAPConnectionError):
-        await tenant._request(method=HTTPMethod.GET, uri='eggs')
+    with pytest.raises(exceptions.SAPConnectionError) as err:
+        await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/eggs')
+    assert 'Timeout while connecting' in str(err)
 
 
 async def test_tenant_request_error_no_connection(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant request ClientError."""
     mocked.get(
-        url=f'{tenant.hostname}/spamm',
+        url=f'{legacy_tenant.hostname}/spamm',
         exception=ClientError(),
     )
     with pytest.raises(exceptions.SAPConnectionError):
-        await tenant._request(method=HTTPMethod.GET, uri='spamm')
+        await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/spamm')
 
 
 async def test_tenant_request_error_not_modified(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant request happy flow."""
     mocked.post(
-        url=f'{tenant.hostname}/spamm',
+        url=f'{legacy_tenant.hostname}/spamm',
         status=304,
     )
 
     with pytest.raises(exceptions.SAPNotModifiedError):
-        await tenant._request(
-            method=HTTPMethod.POST,
+        await legacy_tenant._request(
+            method=const.HTTPMethod.POST,
             uri='/spamm',
             json=[{'eggs': 'bacon'}],
         )
 
 
 async def test_tenant_request_error_maintenance(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant request happy flow."""
     mocked.get(
-        url=f'{tenant.hostname}/spamm',
+        url=f'{legacy_tenant.hostname}/spamm',
         status=200,
         headers={'Content-Type': 'text/html'},
         payload='<html><body>Server Maintenance</body></html>',
     )
 
     with pytest.raises(exceptions.SAPResponseError):
-        await tenant._request(method=HTTPMethod.GET, uri='/spamm')
+        await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/spamm')
 
 
 async def test_tenant_request_error_status(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant request status code."""
     mocked.get(
-        url=f'{tenant.hostname}/200',
+        url=f'{legacy_tenant.hostname}/200',
         status=200,
         payload={'eggs': 'bacon'},
     )
-    response = await tenant._request(method=HTTPMethod.GET, uri='/200')
+    response = await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/200')
     assert response.get('eggs') == 'bacon'
 
     mocked.get(
-        url=f'{tenant.hostname}/300',
+        url=f'{legacy_tenant.hostname}/300',
         status=300,
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
-        await tenant._request(method=HTTPMethod.GET, uri='/300')
+        await legacy_tenant._request(method=const.HTTPMethod.GET, uri='/300')
 
     mocked.post(
-        url=f'{tenant.hostname}/200',
+        url=f'{legacy_tenant.hostname}/200',
         status=200,
         payload={'eggs': 'bacon'},
     )
-    response = await tenant._request(
-        method=HTTPMethod.POST,
+    response = await legacy_tenant._request(
+        method=const.HTTPMethod.POST,
         uri='/200',
         json=[{'eggs': 'bacon'}],
     )
     assert response.get('eggs') == 'bacon'
 
     mocked.post(
-        url=f'{tenant.hostname}/201',
+        url=f'{legacy_tenant.hostname}/201',
         status=201,
         payload={'eggs': 'bacon'},
     )
-    response = await tenant._request(
-        method=HTTPMethod.POST,
+    response = await legacy_tenant._request(
+        method=const.HTTPMethod.POST,
         uri='/201',
         json=[{'eggs': 'bacon'}],
     )
     assert response.get('eggs') == 'bacon'
 
     mocked.post(
-        url=f'{tenant.hostname}/300',
+        url=f'{legacy_tenant.hostname}/300',
         status=300,
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
-        await tenant._request(
-            method=HTTPMethod.POST,
+        await legacy_tenant._request(
+            method=const.HTTPMethod.POST,
             uri='/300',
             json=[{'eggs': 'bacon'}],
         )
 
     mocked.put(
-        url=f'{tenant.hostname}/200',
+        url=f'{legacy_tenant.hostname}/200',
         status=200,
         payload={'eggs': 'bacon'},
     )
-    response = await tenant._request(method=HTTPMethod.PUT, uri='/200')
+    response = await legacy_tenant._request(method=const.HTTPMethod.PUT, uri='/200')
     assert response.get('eggs') == 'bacon'
 
     mocked.put(
-        url=f'{tenant.hostname}/300',
+        url=f'{legacy_tenant.hostname}/300',
         status=300,
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
-        await tenant._request(method=HTTPMethod.PUT, uri='/300')
+        await legacy_tenant._request(method=const.HTTPMethod.PUT, uri='/300')
 
     mocked.delete(
-        url=f'{tenant.hostname}/200',
+        url=f'{legacy_tenant.hostname}/200',
         status=200,
         payload={'eggs': 'bacon'},
     )
-    response = await tenant._request(method=HTTPMethod.DELETE, uri='/200')
+    response = await legacy_tenant._request(
+        method=const.HTTPMethod.DELETE,
+        uri='/200',
+    )
     assert response.get('eggs') == 'bacon'
 
     mocked.delete(
-        url=f'{tenant.hostname}/300',
+        url=f'{legacy_tenant.hostname}/300',
         status=300,
         payload={'eggs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPBadRequestError):
-        await tenant._request(method=HTTPMethod.DELETE, uri='/300')
+        await legacy_tenant._request(method=const.HTTPMethod.DELETE, uri='/300')
 
 
 async def test_tenant_create(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create happy flow."""
@@ -213,16 +231,16 @@ async def test_tenant_create(
         status=201,
         payload={'eggs': [{'eggSeq': '12345', 'name': 'eggs'}]},
     )
-    response = await tenant.create(resource)
+    response = await legacy_tenant.create(resource)
     assert response.seq == '12345'
     assert response.name == 'eggs'
 
 
 async def test_tenant_create_error(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
-    """Test tenant create error invalid payload status.
+    """Test self.tenant create error invalid payload status.
 
     Response status indicates an error (400).
     Error data does not mention resource.
@@ -238,12 +256,12 @@ async def test_tenant_create_error(
     )
 
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.create(resource)
+        await legacy_tenant.create(resource)
     assert 'Invalid Resource' in str(err.value)
 
 
 async def test_tenant_create_error_already_exists(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error already exists.
@@ -284,12 +302,12 @@ async def test_tenant_create_error_already_exists(
     )
 
     with pytest.raises(exceptions.SAPAlreadyExistsError) as err:
-        await tenant.create(resource)
+        await legacy_tenant.create(resource)
     assert 'TCMP_35004' in str(err.value)
 
 
 async def test_tenant_create_error_missing_field(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error missing field.
@@ -319,12 +337,12 @@ async def test_tenant_create_error_missing_field(
     )
 
     with pytest.raises(exceptions.SAPMissingFieldError) as err:
-        await tenant.create(resource)
+        await legacy_tenant.create(resource)
     assert 'TCMP_1002' in str(err.value)
 
 
 async def test_tenant_create_error_unexpected(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error unexpected.
@@ -351,11 +369,11 @@ async def test_tenant_create_error_unexpected(
     )
 
     with pytest.raises(exceptions.SAPResponseError):
-        await tenant.create(resource)
+        await legacy_tenant.create(resource)
 
 
 async def test_tenant_create_error_payload(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error payload.
@@ -373,12 +391,12 @@ async def test_tenant_create_error_payload(
     )
 
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.create(resource)
+        await legacy_tenant.create(resource)
     assert 'Unexpected payload' in str(err.value)
 
 
 async def test_tenant_create_error_validation(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error model validation.
@@ -393,12 +411,12 @@ async def test_tenant_create_error_validation(
         payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.create(resource)
+        await legacy_tenant.create(resource)
     assert 'name' in str(err.value)
 
 
 async def test_tenant_update(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant update happy flow."""
@@ -409,7 +427,7 @@ async def test_tenant_update(
         payload={'eggs': [{'eggSeq': '12345', 'name': 'eggs'}]},
     )
 
-    resource = await tenant.create(resource)
+    resource = await legacy_tenant.create(resource)
     assert resource.seq == '12345'
     assert resource.name == 'eggs'
 
@@ -419,13 +437,13 @@ async def test_tenant_update(
         status=200,
         payload={'eggs': [{'eggSeq': '12345', 'name': 'bacon'}]},
     )
-    response = await tenant.update(resource)
+    response = await legacy_tenant.update(resource)
     assert response.seq == '12345'
     assert response.name == 'bacon'
 
 
 async def test_tenant_update_error_not_modified(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant update not modified.
@@ -437,12 +455,12 @@ async def test_tenant_update_error_not_modified(
         url=mock_url,
         status=304,
     )
-    response = await tenant.update(resource)
+    response = await legacy_tenant.update(resource)
     assert response.name == 'Spamm'
 
 
 async def test_tenant_update_error(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error invalid payload status.
@@ -461,12 +479,12 @@ async def test_tenant_update_error(
     )
 
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.update(resource)
+        await legacy_tenant.update(resource)
     assert 'Invalid Resource' in str(err.value)
 
 
 async def test_tenant_update_error_on_field(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error on field.
@@ -501,12 +519,12 @@ async def test_tenant_update_error_on_field(
     )
 
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.update(resource)
+        await legacy_tenant.update(resource)
     assert 'TCMP_09022' in str(err.value)
 
 
 async def test_tenant_update_error_unexpected(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error unexpected.
@@ -533,11 +551,11 @@ async def test_tenant_update_error_unexpected(
     )
 
     with pytest.raises(exceptions.SAPResponseError):
-        await tenant.update(resource)
+        await legacy_tenant.update(resource)
 
 
 async def test_tenant_update_error_payload(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error payload.
@@ -555,12 +573,12 @@ async def test_tenant_update_error_payload(
     )
 
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.update(resource)
+        await legacy_tenant.update(resource)
     assert 'Unexpected payload' in str(err.value)
 
 
 async def test_tenant_update_error_validation(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant create error model validation.
@@ -575,12 +593,12 @@ async def test_tenant_update_error_validation(
         payload={'eggs': [{'eggSeq': '12345', 'needs': 'bacon'}]},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.update(resource)
+        await legacy_tenant.update(resource)
     assert 'name' in str(err.value)
 
 
 async def test_tenant_delete(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant delete happy flow."""
@@ -594,12 +612,12 @@ async def test_tenant_delete(
             },
         },
     )
-    response = await tenant.delete(resource)
+    response = await legacy_tenant.delete(resource)
     assert response is True
 
 
 async def test_tenant_delete_error_seq_none(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant delete on resource without seq attribute.
@@ -609,19 +627,19 @@ async def test_tenant_delete_error_seq_none(
     """
     resource = MockResource(name='spamm')
     with pytest.raises(exceptions.SAPDeleteFailedError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'no unique identifier' in str(err.value)
     assert len(mocked.requests) == 0
 
     resource = MockResource(attr_seq=0, name='spamm')
     with pytest.raises(exceptions.SAPDeleteFailedError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'no unique identifier' in str(err.value)
     assert len(mocked.requests) == 0
 
 
 async def test_tenant_delete_error_seq_invalid(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant delete with invalid seq.
@@ -639,12 +657,12 @@ async def test_tenant_delete_error_seq_invalid(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'Invalid Resource Payload' in str(err.value)
 
 
 async def test_tenant_delete_error_seq_not_found(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant delete seq not found.
@@ -663,7 +681,7 @@ async def test_tenant_delete_error_seq_not_found(
         },
     )
     with pytest.raises(exceptions.SAPDeleteFailedError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'TCMP_09007' in str(err.value)
 
     mocked.delete(
@@ -680,7 +698,7 @@ async def test_tenant_delete_error_seq_not_found(
         },
     )
     with pytest.raises(exceptions.SAPDeleteFailedError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'TCMP_35001' in str(err.value)
 
     # This should not happen, including it here to satify coverage
@@ -695,7 +713,7 @@ async def test_tenant_delete_error_seq_not_found(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'Unexpected payload' in str(err.value)
 
     mocked.delete(
@@ -707,11 +725,11 @@ async def test_tenant_delete_error_seq_not_found(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
 
 
 async def test_tenant_delete_error_unexpected(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant delete unexpected error.
@@ -729,7 +747,7 @@ async def test_tenant_delete_error_unexpected(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'Invalid Resource Payload' in str(err.value)
 
     mocked.delete(
@@ -743,12 +761,12 @@ async def test_tenant_delete_error_unexpected(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.delete(resource)
+        await legacy_tenant.delete(resource)
     assert 'Invalid Resource Payload' in str(err.value)
 
 
 async def test_tenant_read_all(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all happy flow."""
@@ -768,7 +786,7 @@ async def test_tenant_read_all(
         },
     )
     resources = [
-        resource async for resource in tenant.read_all(MockResource, page_size=1)
+        resource async for resource in legacy_tenant.read_all(MockResource, page_size=1)
     ]
     assert len(mocked.requests) == 2
     assert len(resources) == 2
@@ -777,7 +795,7 @@ async def test_tenant_read_all(
 
 
 async def test_tenant_read_all_page_size(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all page size.
@@ -789,7 +807,9 @@ async def test_tenant_read_all_page_size(
         status=200,
         payload={'eggs': []},
     )
-    _ = [resource async for resource in tenant.read_all(MockResource, page_size=2)]
+    _ = [
+        resource async for resource in legacy_tenant.read_all(MockResource, page_size=2)
+    ]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
         assert mock_url.match(str(request[1]))
@@ -797,7 +817,7 @@ async def test_tenant_read_all_page_size(
 
 
 async def test_tenant_read_all_page_size_below_bounds(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all adjust page size.
@@ -809,7 +829,9 @@ async def test_tenant_read_all_page_size_below_bounds(
         status=200,
         payload={'eggs': []},
     )
-    _ = [resource async for resource in tenant.read_all(MockResource, page_size=0)]
+    _ = [
+        resource async for resource in legacy_tenant.read_all(MockResource, page_size=0)
+    ]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
         assert mock_url.match(str(request[1]))
@@ -817,7 +839,7 @@ async def test_tenant_read_all_page_size_below_bounds(
 
 
 async def test_tenant_read_all_page_size_above_bounds(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all adjust page size.
@@ -829,7 +851,10 @@ async def test_tenant_read_all_page_size_above_bounds(
         status=200,
         payload={'eggs': []},
     )
-    _ = [resource async for resource in tenant.read_all(MockResource, page_size=1000)]
+    _ = [
+        resource
+        async for resource in legacy_tenant.read_all(MockResource, page_size=1000)
+    ]
     assert len(mocked.requests) == 1
     for request in mocked.requests:
         assert mock_url.match(str(request[1]))
@@ -837,7 +862,7 @@ async def test_tenant_read_all_page_size_above_bounds(
 
 
 async def test_tenant_read_all_filter(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all apply filter."""
@@ -848,7 +873,7 @@ async def test_tenant_read_all_filter(
     )
     _ = [
         resource
-        async for resource in tenant.read_all(
+        async for resource in legacy_tenant.read_all(
             MockResource,
             filters="spamm eq 'eggs'",
         )
@@ -862,7 +887,7 @@ async def test_tenant_read_all_filter(
 
 
 async def test_tenant_read_all_order_by(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all order_by."""
@@ -873,7 +898,7 @@ async def test_tenant_read_all_order_by(
     )
     _ = [
         resource
-        async for resource in tenant.read_all(
+        async for resource in legacy_tenant.read_all(
             MockResource,
             order_by=['spamm', 'eggs', 'bacon'],
         )
@@ -887,7 +912,7 @@ async def test_tenant_read_all_order_by(
 
 
 async def test_tenant_read_all_error_unexpected(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all error unexpected.
@@ -901,12 +926,12 @@ async def test_tenant_read_all_error_unexpected(
         payload={'bacon': 'cheese'},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        _ = [resource async for resource in tenant.read_all(MockResource)]
+        _ = [resource async for resource in legacy_tenant.read_all(MockResource)]
     assert 'Unexpected payload' in str(err.value)
 
 
 async def test_tenant_read_all_error_validation(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read all error unexpected.
@@ -925,12 +950,12 @@ async def test_tenant_read_all_error_validation(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        _ = [resource async for resource in tenant.read_all(MockResource)]
+        _ = [resource async for resource in legacy_tenant.read_all(MockResource)]
     assert 'name' in str(err.value)
 
 
 async def test_tenant_read_first(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read first happy flow."""
@@ -949,14 +974,14 @@ async def test_tenant_read_first(
             'eggs': [{'eggSeq': '456', 'name': 'eggs'}],
         },
     )
-    resource = await tenant.read_first(MockResource)
+    resource = await legacy_tenant.read_first(MockResource)
     assert len(mocked.requests) == 1
     assert resource.seq == '123'
     assert resource.name == 'spamm'
 
 
 async def test_tenant_read_first_error_not_found(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read first error not found."""
@@ -966,11 +991,11 @@ async def test_tenant_read_first_error_not_found(
         payload={'eggs': []},
     )
     with pytest.raises(exceptions.SAPNotFoundError):
-        await tenant.read_first(MockResource)
+        await legacy_tenant.read_first(MockResource)
 
 
 async def test_tenant_read_seq(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read seq happy flow."""
@@ -979,12 +1004,12 @@ async def test_tenant_read_seq(
         status=200,
         payload={'eggSeq': '123', 'name': 'spamm'},
     )
-    resource = await tenant.read_seq(MockResource, '123')
+    resource = await legacy_tenant.read_seq(MockResource, '123')
     assert resource.seq == '123'
 
 
 async def test_tenant_read_seq_error_validation(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read seq error validation."""
@@ -994,12 +1019,12 @@ async def test_tenant_read_seq_error_validation(
         payload={'eggSeq': '123', 'needs': 'bacon'},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.read_seq(MockResource, '123')
+        await legacy_tenant.read_seq(MockResource, '123')
     assert 'name' in str(err.value)
 
 
 async def test_tenant_read(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read happy flow."""
@@ -1012,12 +1037,12 @@ async def test_tenant_read(
         egg_seq='123',
         name='spamm',
     )
-    resource = await tenant.read(mock_resource)
+    resource = await legacy_tenant.read(mock_resource)
     assert mock_resource == resource
 
 
 async def test_tenant_read_error_seq_none(
-    tenant: LegacyTenant,
+    legacy_tenant: client.Tenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant read error seq none.
@@ -1027,27 +1052,38 @@ async def test_tenant_read_error_seq_none(
     """
     resource = MockResource(name='spamm')
     with pytest.raises(exceptions.SAPNotFoundError) as err:
-        await tenant.read(resource)
+        await legacy_tenant.read(resource)
     assert 'no unique identifier' in str(err.value)
     assert len(mocked.requests) == 0
 
     resource = MockResource(attr_seq=0, name='spamm')
     with pytest.raises(exceptions.SAPNotFoundError) as err:
-        await tenant.read(resource)
+        await legacy_tenant.read(resource)
     assert 'no unique identifier' in str(err.value)
     assert len(mocked.requests) == 0
 
 
-async def test_tenant_run_pipeline(
-    tenant: LegacyTenant,
+def test_legacytenant_hostname(legacy_tenant: client.LegacyTenant) -> None:
+    """Test hostname."""
+    hostname = const.LEGACY_HOSTNAME.format(tenant='test')
+    assert legacy_tenant.hostname == hostname
+
+
+def test_legacytenant_host_type(legacy_tenant: client.LegacyTenant) -> None:
+    """Test Host Type."""
+    assert legacy_tenant.host_type == const.TenantType.LEGACY
+
+
+async def test_legacytenant_run_pipeline(
+    legacy_tenant: client.LegacyTenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant run pipeline happy flow."""
 
-    class MockPipeline(Endpoint):
+    class MockPipeline(PipelineJob):
         """Mock pipeline job."""
 
-        attr_endpoint: ClassVar[str] = '/api/v2/pipelines'
+        attr_endpoint: ClassVar[str] = '/v2/pipelines'
         command: str = 'PipelineRun'
         stage_type_seq: str = '21673573206720532'
         calendar_seq: str = '123'
@@ -1055,7 +1091,7 @@ async def test_tenant_run_pipeline(
 
     mock_job = MockPipeline()
     mocked.post(
-        url=f'{tenant.hostname}/api/v2/pipelines',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines',
         status=200,
         payload={'pipelines': {'0': ['123']}},
     )
@@ -1070,24 +1106,24 @@ async def test_tenant_run_pipeline(
             'state': 'Running',
             'userId': 'spamm',
             'processingUnit': '999',
-            'period': '456',
+            'period': {'key': '456', 'object_type': 'Period'},
         },
     )
-    response = await tenant.run_pipeline(mock_job)
-    assert isinstance(response, legacy.Pipeline)
+    response = await legacy_tenant.run_pipeline(mock_job)
+    assert isinstance(response, Pipeline)
     assert response.seq == '123'
 
 
-async def test_tenant_run_pipeline_error(
-    tenant: LegacyTenant,
+async def test_legacytenant_run_pipeline_error(
+    legacy_tenant: client.LegacyTenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant run pipeline error."""
 
-    class MockPipeline(Endpoint):
+    class MockPipeline(PipelineJob):
         """Mock pipeline job."""
 
-        attr_endpoint: ClassVar[str] = '/api/v2/pipelines'
+        attr_endpoint: ClassVar[str] = '/v2/pipelines'
         command: str = 'PipelineRun'
         stage_type_seq: str = '21673573206720532'
         calendar_seq: str = '123'
@@ -1097,7 +1133,7 @@ async def test_tenant_run_pipeline_error(
 
     # 500 - without mention of resource.
     mocked.post(
-        url=f'{tenant.hostname}/api/v2/pipelines',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines',
         status=500,
         payload={
             'timestamp': '2024-01-01',
@@ -1105,32 +1141,32 @@ async def test_tenant_run_pipeline_error(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.run_pipeline(mock_job)
+        await legacy_tenant.run_pipeline(mock_job)
     assert 'Could not run pipeline job' in str(err.value)
 
     # 500 - with mention of resource and job.
     mocked.post(
-        url=f'{tenant.hostname}/api/v2/pipelines',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines',
         status=500,
         payload={'pipelines': {'0': {'spamm': 'Value for spamm is required'}}},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.run_pipeline(mock_job)
+        await legacy_tenant.run_pipeline(mock_job)
     assert 'Value for spamm is required' in str(err.value)
 
     # 500 - with mention of resource without job.
     mocked.post(
-        url=f'{tenant.hostname}/api/v2/pipelines',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines',
         status=500,
         payload={'pipelines': {'_ERROR_': 'Server did not respond'}},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.run_pipeline(mock_job)
+        await legacy_tenant.run_pipeline(mock_job)
     assert 'Server did not respond' in str(err.value)
 
     # 200 - without mention of resource.
     mocked.post(
-        url=f'{tenant.hostname}/api/v2/pipelines',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines',
         status=200,
         payload={
             'timestamp': '2024-01-01',
@@ -1138,22 +1174,22 @@ async def test_tenant_run_pipeline_error(
         },
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.run_pipeline(mock_job)
+        await legacy_tenant.run_pipeline(mock_job)
     assert 'Unexpected response' in str(err.value)
 
     # 200 - with mention of resource without job
     mocked.post(
-        url=f'{tenant.hostname}/api/v2/pipelines',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines',
         status=200,
         payload={'pipelines': {'_ERROR_': 'Server did not respond'}},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.run_pipeline(mock_job)
+        await legacy_tenant.run_pipeline(mock_job)
     assert 'Server did not respond' in str(err.value)
 
 
-async def test_tenant_cancel_pipeline(
-    tenant: LegacyTenant,
+async def test_legacytenant_cancel_pipeline(
+    legacy_tenant: client.LegacyTenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant cancel pipeline happy flow."""
@@ -1161,32 +1197,32 @@ async def test_tenant_cancel_pipeline(
     class MockPipeline(LegacyResource):
         """Mock pipeline."""
 
-        attr_endpoint: ClassVar[str] = '/api/v2/pipelines'
+        attr_endpoint: ClassVar[str] = '/v2/pipelines'
         attr_seq: ClassVar[str] = 'pipeline_run_seq'
         pipeline_run_seq: str | None = None
         command: str = 'PipelineRun'
 
     mock_job = MockPipeline(pipeline_run_seq='123')
     mocked.delete(
-        url=f'{tenant.hostname}/api/v2/pipelines(123)',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines(123)',
         status=200,
         payload={'123': 'Job cancelled'},
     )
-    response = await tenant.cancel_pipeline(mock_job)
+    response = await legacy_tenant.cancel_pipeline(mock_job)
     assert response is True
 
     # 500 - with mention of job.
     mocked.delete(
-        url=f'{tenant.hostname}/api/v2/pipelines(123)',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines(123)',
         status=500,
         payload={'123': 'TCMP_60255:Job deleted.'},
     )
-    response = await tenant.cancel_pipeline(mock_job)
+    response = await legacy_tenant.cancel_pipeline(mock_job)
     assert response is True
 
 
-async def test_tenant_cancel_pipeline_error(
-    tenant: LegacyTenant,
+async def test_legacytenant_cancel_pipeline_error(
+    legacy_tenant: client.LegacyTenant,
     mocked: aioresponses,
 ) -> None:
     """Test tenant cancel pipeline error."""
@@ -1194,7 +1230,7 @@ async def test_tenant_cancel_pipeline_error(
     class MockPipeline(LegacyResource):
         """Mock pipeline."""
 
-        attr_endpoint: ClassVar[str] = '/api/v2/pipelines'
+        attr_endpoint: ClassVar[str] = '/v2/pipelines'
         attr_seq: ClassVar[str] = 'pipeline_run_seq'
         pipeline_run_seq: str | None = None
         command: str = 'PipelineRun'
@@ -1203,30 +1239,41 @@ async def test_tenant_cancel_pipeline_error(
 
     # 500 - without mention of job.
     mocked.delete(
-        url=f'{tenant.hostname}/api/v2/pipelines(123)',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines(123)',
         status=500,
         payload={'error': 'Job not found.'},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.cancel_pipeline(mock_job)
+        await legacy_tenant.cancel_pipeline(mock_job)
     assert 'Job not found' in str(err.value)
 
     # 500 - with mention of job.
     mocked.delete(
-        url=f'{tenant.hostname}/api/v2/pipelines(123)',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines(123)',
         status=500,
         payload={'123': 'Job already cancelled.'},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.cancel_pipeline(mock_job)
+        await legacy_tenant.cancel_pipeline(mock_job)
     assert 'Job already cancelled' in str(err.value)
 
     # 200 - without mention of job.
     mocked.delete(
-        url=f'{tenant.hostname}/api/v2/pipelines(123)',
+        url=f'{legacy_tenant.hostname}/api/v2/pipelines(123)',
         status=200,
         payload={'error': 'Unexpected response'},
     )
     with pytest.raises(exceptions.SAPResponseError) as err:
-        await tenant.cancel_pipeline(mock_job)
+        await legacy_tenant.cancel_pipeline(mock_job)
     assert 'Unexpected response' in str(err.value)
+
+
+def test_gcptenant_hostname(gcp_tenant: client.GCPTenant) -> None:
+    """Test hostname."""
+    hostname = const.GCP_HOSTNAME.format(tenant='test')
+    assert gcp_tenant.hostname == hostname
+
+
+def test_gcptenant_host_type(gcp_tenant: client.GCPTenant) -> None:
+    """Test Host Type."""
+    assert gcp_tenant.host_type == const.TenantType.GCP

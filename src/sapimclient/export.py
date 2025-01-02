@@ -12,7 +12,6 @@ from sapimclient import LegacyTenant
 from sapimclient.exceptions import SAPConnectionError, SAPNotFoundError
 from sapimclient.helpers import BooleanOperator, LogicalOperator, retry
 from sapimclient.model import Value, legacy
-from sapimclient.model.legacy.base import LegacyResource, Reference
 
 GLOB_SEMAPHORE = asyncio.Semaphore(5)
 MAX_BUFFER: int = 1000
@@ -77,7 +76,7 @@ def _transform_business_units(series: pd.Series) -> pd.Series:
 
 def _transform_all(
     df: pd.DataFrame,
-    resource_cls: type[LegacyResource],
+    resource_cls: type[legacy.LegacyResource],
 ) -> pd.DataFrame:
     """Transform and extract all objectes to values."""
     date_fields: list[str] = [
@@ -93,7 +92,9 @@ def _transform_all(
     ]
     df[value_fields] = df[value_fields].apply(_transform_values)
     reference_fields: list[str] = [
-        key for key in resource_cls.typed_fields(Reference) if key in df.columns
+        key
+        for key in resource_cls.typed_fields(legacy.LegacyReference)
+        if key in df.columns
     ]
     name_fields: list[str] = [f'{field_name}_name' for field_name in reference_fields]
     keys_fields: list[str] = [f'{field_name}_keys' for field_name in reference_fields]
@@ -109,11 +110,11 @@ def _transform_all(
 
 async def load_resource_filtered(
     client: LegacyTenant,
-    resource_cls: type[LegacyResource],
+    resource_cls: type[legacy.LegacyResource],
     filters: BooleanOperator | LogicalOperator | str | None = None,
 ) -> pd.DataFrame:
     """Load resources to DataFrame."""
-    generator: AsyncGenerator[LegacyResource, None] = client.read_all(
+    generator: AsyncGenerator[legacy.LegacyResource, None] = client.read_all(
         resource_cls=resource_cls,
         filters=filters,
         page_size=100,
@@ -144,7 +145,7 @@ async def load_resource_filtered(
 
 async def load_resource_seqs(
     client: LegacyTenant,
-    resource_cls: type[LegacyResource],
+    resource_cls: type[legacy.LegacyResource],
     seqs: set[str] | pd.Series,
 ) -> pd.DataFrame:
     """Load reference resources into DataFrame."""
@@ -167,7 +168,7 @@ async def load_resource_seqs(
             )
             for seq in chunk_seqs
         ]
-        result: list[LegacyResource] = await asyncio.gather(*tasks)
+        result: list[legacy.LegacyResource] = await asyncio.gather(*tasks)
         chunk = pd.DataFrame([item.model_dump() for item in result], dtype='object')
         chunk = chunk.set_index(resource_cls.attr_seq)
 

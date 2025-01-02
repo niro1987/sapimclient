@@ -46,7 +46,7 @@ Data Type
 .. autosummary:: sapimclient.model.data_type
 .. automodule:: sapimclient.model.data_type
 
-    .. autoclass:: _DataType
+    .. autoclass:: DataType
     .. autoclass:: CreditType
     .. autoclass:: EarningCode
     .. autoclass:: EarningGroup

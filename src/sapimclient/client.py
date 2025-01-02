@@ -13,7 +13,8 @@ from pydantic_core import ValidationError
 
 from sapimclient import auth, const, exceptions
 from sapimclient.helpers import BooleanOperator, LogicalOperator, retry
-from sapimclient.model import Resource, legacy
+from sapimclient.model import Resource
+from sapimclient.model.legacy import Pipeline, PipelineJob
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=Resource)
@@ -522,15 +523,15 @@ class LegacyTenant(Tenant):
 
     Parameters:
         tenant (str): Your tenant ID.
-            The tenant ID starts with 'g'. If the url is
-            `https://g000.app.commissions.cloud.sap/SalesPortal/#!/`,
-            the tenant ID is `g000`.
+            If the url is
+            `https://cald-prd.callidusondemand.com/SalesPortal/#!/`,
+            the tenant ID is `cald-prd`.
 
-        authenticator (BasicAuthenticator): An instance of BasicAuthenticator to obtain
-            the authorization header.
+        authenticator (Authenticator): An Authenticator instance to use for
+            authorization.
     """
 
-    authenticator: auth.BasicAuthenticator
+    authenticator: auth.Authenticator
 
     @property
     def hostname(self) -> str:
@@ -542,14 +543,14 @@ class LegacyTenant(Tenant):
         """The type of tenant."""
         return const.TenantType.LEGACY
 
-    async def run_pipeline(self, job: legacy.PipelineJob) -> legacy.Pipeline:
+    async def run_pipeline(self, job: PipelineJob) -> Pipeline:
         """Run a pipeline and retrieves the created Pipeline.
 
         Parameters:
-            job (legacy.PipelineJob): The pipeline job to run.
+            job (PipelineJob): The pipeline job to run.
 
         Returns:
-            legacy.Pipeline: The created Pipeline.
+            Pipeline: The created Pipeline.
 
         Raises:
             SAPResponseError: If the pipeline failed to run.
@@ -561,10 +562,11 @@ class LegacyTenant(Tenant):
             exclude_none=True,
         )
 
+        uri: str = job.attr_endpoint_prefix + job.attr_endpoint
         try:
             response: dict[str, Any] = await self._request(
                 method=const.HTTPMethod.POST,
-                uri=job.attr_endpoint,
+                uri=uri,
                 json=[json],
             )
         except exceptions.SAPBadRequestError as err:
@@ -595,13 +597,13 @@ class LegacyTenant(Tenant):
             raise exceptions.SAPResponseError(msg)
 
         seq: str = json_data['0'][0]
-        return await self.read_seq(legacy.Pipeline, seq)
+        return await self.read_seq(Pipeline, seq)
 
-    async def cancel_pipeline(self, job: legacy.Pipeline) -> bool:
+    async def cancel_pipeline(self, job: Pipeline) -> bool:
         """Cancel a running pipeline.
 
         Parameters:
-            job (legacy.Pipeline): The running pipeline job to cancel.
+            job (Pipeline): The running pipeline job to cancel.
 
         Returns:
             bool: True if the pipeline was successfully canceled. Raises an exception
@@ -612,7 +614,9 @@ class LegacyTenant(Tenant):
         """
         LOGGER.debug('Cancel %s(%s)', job.command, job.pipeline_run_seq)
 
-        uri: str = f'{job.attr_endpoint}({job.pipeline_run_seq})'
+        uri: str = (
+            job.attr_endpoint_prefix + job.attr_endpoint + f'({job.pipeline_run_seq})'
+        )
         try:
             response: dict[str, Any] = await self._request(
                 method=const.HTTPMethod.DELETE,

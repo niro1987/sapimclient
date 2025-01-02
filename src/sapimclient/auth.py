@@ -10,7 +10,6 @@ from urllib.parse import urlparse
 from aiohttp import (
     BasicAuth,
     ClientError,
-    ClientResponseError,
     ClientSession,
 )
 
@@ -36,14 +35,14 @@ class Token:
 
     token_type: str
     access_token: str
-    refresh_token: str | None = None
     expires_in: int = 0
-    obtained_at: float = field(default_factory=time.time)
+    created_at: float = field(default_factory=time.time)
+    refresh_token: str | None = None
 
     @property
     def is_expired(self) -> bool:
         """Return True if token is expired."""
-        return self.obtained_at + self.expires_in - 60 < time.time()
+        return self.created_at + self.expires_in < time.time()
 
     @property
     def as_header(self) -> dict[str, str]:
@@ -89,20 +88,20 @@ class BasicAuthenticator(Authenticator):
                         ssl=VERIFY_SSL,
                         json={'username': self.username, 'password': self.password},
                     )
-                    response.raise_for_status()
-                    data = await response.json()
             except TimeoutError as err:
                 msg = 'Timeout while connecting'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
-            except ClientResponseError as err:
-                msg = f'Invalid User name or Password for {self.username}'
-                LOGGER.exception(msg)
-                raise exceptions.SAPNotAuthorizedError(msg) from err
             except ClientError as err:
                 msg = f'Failed to obtain token: {err}'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
+
+            if not response.ok:
+                msg = await response.text()
+                LOGGER.error(msg)
+                raise exceptions.SAPNotAuthorizedError(msg)
+            data: dict[str, str] = await response.json()
 
         token = Token(
             token_type=data['token_type'],
@@ -114,7 +113,7 @@ class BasicAuthenticator(Authenticator):
         return token
 
     async def refresh_token(self, tenant: str) -> Token:
-        """Get auth-token."""
+        """Refresh auth-token."""
         if not (token := self._token) or token.refresh_token is None:
             return await self.get_token(tenant)
 
@@ -128,20 +127,20 @@ class BasicAuthenticator(Authenticator):
                         ssl=VERIFY_SSL,
                         json={'refresh_token': self._token.refresh_token},
                     )
-                    response.raise_for_status()
-                    data = await response.json()
             except TimeoutError as err:
                 msg = 'Timeout while connecting'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
-            except ClientResponseError as err:
-                msg = f'Invalid User name or Password for {self.username}'
-                LOGGER.exception(msg)
-                raise exceptions.SAPNotAuthorizedError(msg) from err
             except ClientError as err:
                 msg = f'Failed to obtain token: {err}'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
+
+            if not response.ok:
+                msg = await response.text()
+                LOGGER.error(msg)
+                raise exceptions.SAPNotAuthorizedError(msg)
+            data: dict[str, str] = await response.json()
 
         token = Token(
             token_type=data['token_type'],
@@ -183,20 +182,20 @@ class OAuth2Authenticator(Authenticator):
                         },
                         ssl=VERIFY_SSL,
                     )
-                    response.raise_for_status()
-                    data = await response.json()
             except TimeoutError as err:
                 msg = 'Timeout while connecting'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
-            except ClientResponseError as err:
-                msg = f'Invalid credentials for {ias_host}'
-                LOGGER.exception(msg)
-                raise exceptions.SAPNotAuthorizedError(msg) from err
             except ClientError as err:
                 msg = f'Failed to obtain token: {err}'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
+
+            if not response.ok:
+                msg = await response.text()
+                LOGGER.error(msg)
+                raise exceptions.SAPNotAuthorizedError(msg)
+            data: dict[str, str] = await response.json()
 
         token = Token(
             token_type=data['token_type'],
@@ -226,14 +225,15 @@ class OAuth2Authenticator(Authenticator):
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
             except ClientError as err:
-                msg = f'Failed to obtain token: {err}'
+                msg = f'Failed to resolve ias host: {err}'
                 LOGGER.exception(msg)
                 raise exceptions.SAPConnectionError(msg) from err
 
         if not (location := response.headers.get('Location')):
-            raise exceptions.SAPResponseError('Location header not found.')
+            msg = 'Location header not found, use BasicAuthenticator instead'
+            raise exceptions.SAPConnectionError(msg)
 
         url = urlparse(location)
         self._ias_host = f'{url.scheme}://{url.hostname}'
-        LOGGER.debug('IAS Host: %s', self._ias_host)
+        LOGGER.debug('Successfully resolved IAS host')
         return self._ias_host

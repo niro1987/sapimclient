@@ -2,6 +2,7 @@
   "recommendations": [
     "sanaajani.taskrunnercode",
     "GitHub.copilot",
-    "humao.rest-client"
+    "humao.rest-client",
+    "Codeium.codeium"
   ]
 }

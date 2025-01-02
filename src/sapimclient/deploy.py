@@ -12,7 +12,6 @@ from sapimclient.const import PipelineState, PipelineStatus
 from sapimclient.exceptions import SAPAlreadyExistsError, SAPConnectionError
 from sapimclient.helpers import retry
 from sapimclient.model import legacy
-from sapimclient.model.legacy.data_type import _DataType
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
@@ -46,9 +45,9 @@ RE_XML: Final[re.Pattern] = re.compile(
 )
 
 
-def _file_cls(file: Path) -> type[_DataType | legacy.XMLImport]:
+def _file_cls(file: Path) -> type[legacy.DataType | legacy.XMLImport]:
     """Determine the endpoint based on the filename."""
-    file_mapping: dict[re.Pattern, type[_DataType | legacy.XMLImport]] = {
+    file_mapping: dict[re.Pattern, type[legacy.DataType | legacy.XMLImport]] = {
         RE_CREDIT_TYPE: legacy.CreditType,
         RE_EARNING_CODE: legacy.EarningCode,
         RE_EARNING_GROUP: legacy.EarningGroup,
@@ -67,18 +66,18 @@ def _file_cls(file: Path) -> type[_DataType | legacy.XMLImport]:
 async def deploy_from_path(
     client: LegacyTenant,
     path: Path,
-) -> dict[Path, list[_DataType] | list[legacy.Pipeline]]:
+) -> dict[Path, list[legacy.DataType] | list[legacy.Pipeline]]:
     """Deploy."""
     LOGGER.debug('Deploy %s', path)
     # This is to make sure we recognize each file before we attempt to deploy.
-    files_with_cls: list[tuple[Path, type[_DataType | legacy.XMLImport]]] = [
+    files_with_cls: list[tuple[Path, type[legacy.DataType | legacy.XMLImport]]] = [
         (file, _file_cls(file))
         for file in sorted(path.iterdir(), key=lambda x: x.name)
         if file.is_file()
     ]
-    results: dict[Path, list[_DataType] | list[legacy.Pipeline]] = {}
+    results: dict[Path, list[legacy.DataType] | list[legacy.Pipeline]] = {}
     for file, resource_cls in files_with_cls:
-        if issubclass(resource_cls, _DataType):
+        if issubclass(resource_cls, legacy.DataType):
             results[file] = await deploy_datatypes_from_file(client, file, resource_cls)
         if resource_cls is legacy.XMLImport:
             result: legacy.Pipeline = await deploy_xml(client, file)
@@ -91,11 +90,11 @@ async def deploy_from_path(
 async def deploy_datatypes_from_file(
     client: LegacyTenant,
     file: Path,
-    resource_cls: type[_DataType],
-) -> list[_DataType]:
+    resource_cls: type[legacy.DataType],
+) -> list[legacy.DataType]:
     """Deploy file."""
     LOGGER.info('Deploy file: %s', file)
-    resources: list[_DataType] = []
+    resources: list[legacy.DataType] = []
     with file.open(encoding='utf-8', newline='') as f_in:
         reader = csv.reader(f_in)
         next(reader)  # Skip header
@@ -109,21 +108,21 @@ async def deploy_datatypes_from_file(
 
 async def deploy_datatype(
     client: LegacyTenant,
-    resource: _DataType,
-) -> _DataType:
+    resource: legacy.DataType,
+) -> legacy.DataType:
     """Deploy DataType."""
-    resource_cls: type[_DataType] = resource.__class__
+    resource_cls: type[legacy.DataType] = resource.__class__
     LOGGER.debug('Deploy %s: %s', resource_cls.__name__, resource)
 
     try:
-        created: _DataType = await retry(
+        created: legacy.DataType = await retry(
             client.create,
             resource,
             exceptions=SAPConnectionError,
         )
         LOGGER.info('%s created: %s', resource_cls.__name__, created)
     except SAPAlreadyExistsError:  # DataType exists, update instead
-        updated: _DataType = await retry(
+        updated: legacy.DataType = await retry(
             client.update,
             resource,
             exceptions=SAPConnectionError,
