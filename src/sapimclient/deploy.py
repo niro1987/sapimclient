@@ -45,9 +45,9 @@ RE_XML: Final[re.Pattern] = re.compile(
 )
 
 
-def _file_cls(file: Path) -> type[legacy.DataType | legacy.XMLImport]:
+def _file_cls(file: Path) -> type[legacy.LegacyDataType | legacy.XMLImport]:
     """Determine the endpoint based on the filename."""
-    file_mapping: dict[re.Pattern, type[legacy.DataType | legacy.XMLImport]] = {
+    file_mapping: dict[re.Pattern, type[legacy.LegacyDataType | legacy.XMLImport]] = {
         RE_CREDIT_TYPE: legacy.CreditType,
         RE_EARNING_CODE: legacy.EarningCode,
         RE_EARNING_GROUP: legacy.EarningGroup,
@@ -66,18 +66,20 @@ def _file_cls(file: Path) -> type[legacy.DataType | legacy.XMLImport]:
 async def deploy_from_path(
     client: LegacyTenant,
     path: Path,
-) -> dict[Path, list[legacy.DataType] | list[legacy.Pipeline]]:
+) -> dict[Path, list[legacy.LegacyDataType] | list[legacy.Pipeline]]:
     """Deploy."""
     LOGGER.debug('Deploy %s', path)
     # This is to make sure we recognize each file before we attempt to deploy.
-    files_with_cls: list[tuple[Path, type[legacy.DataType | legacy.XMLImport]]] = [
+    files_with_cls: list[
+        tuple[Path, type[legacy.LegacyDataType | legacy.XMLImport]]
+    ] = [
         (file, _file_cls(file))
         for file in sorted(path.iterdir(), key=lambda x: x.name)
         if file.is_file()
     ]
-    results: dict[Path, list[legacy.DataType] | list[legacy.Pipeline]] = {}
+    results: dict[Path, list[legacy.LegacyDataType] | list[legacy.Pipeline]] = {}
     for file, resource_cls in files_with_cls:
-        if issubclass(resource_cls, legacy.DataType):
+        if issubclass(resource_cls, legacy.LegacyDataType):
             results[file] = await deploy_datatypes_from_file(client, file, resource_cls)
         if resource_cls is legacy.XMLImport:
             result: legacy.Pipeline = await deploy_xml(client, file)
@@ -90,11 +92,11 @@ async def deploy_from_path(
 async def deploy_datatypes_from_file(
     client: LegacyTenant,
     file: Path,
-    resource_cls: type[legacy.DataType],
-) -> list[legacy.DataType]:
+    resource_cls: type[legacy.LegacyDataType],
+) -> list[legacy.LegacyDataType]:
     """Deploy file."""
     LOGGER.info('Deploy file: %s', file)
-    resources: list[legacy.DataType] = []
+    resources: list[legacy.LegacyDataType] = []
     with file.open(encoding='utf-8', newline='') as f_in:
         reader = csv.reader(f_in)
         next(reader)  # Skip header
@@ -108,21 +110,21 @@ async def deploy_datatypes_from_file(
 
 async def deploy_datatype(
     client: LegacyTenant,
-    resource: legacy.DataType,
-) -> legacy.DataType:
+    resource: legacy.LegacyDataType,
+) -> legacy.LegacyDataType:
     """Deploy DataType."""
-    resource_cls: type[legacy.DataType] = resource.__class__
+    resource_cls: type[legacy.LegacyDataType] = resource.__class__
     LOGGER.debug('Deploy %s: %s', resource_cls.__name__, resource)
 
     try:
-        created: legacy.DataType = await retry(
+        created: legacy.LegacyDataType = await retry(
             client.create,
             resource,
             exceptions=SAPConnectionError,
         )
         LOGGER.info('%s created: %s', resource_cls.__name__, created)
     except SAPAlreadyExistsError:  # DataType exists, update instead
-        updated: legacy.DataType = await retry(
+        updated: legacy.LegacyDataType = await retry(
             client.update,
             resource,
             exceptions=SAPConnectionError,

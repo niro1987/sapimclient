@@ -14,7 +14,7 @@ from pydantic_core import ValidationError
 from sapimclient import auth, const, exceptions
 from sapimclient.helpers import BooleanOperator, LogicalOperator, retry
 from sapimclient.model import Resource
-from sapimclient.model.legacy import Pipeline, PipelineJob
+from sapimclient.model.legacy import LegacyPipelineJob, Pipeline
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
 T = TypeVar('T', bound=Resource)
@@ -543,7 +543,7 @@ class LegacyTenant(Tenant):
         """The type of tenant."""
         return const.TenantType.LEGACY
 
-    async def run_pipeline(self, job: PipelineJob) -> Pipeline:
+    async def run_pipeline(self, job: LegacyPipelineJob) -> Pipeline:
         """Run a pipeline and retrieves the created Pipeline.
 
         Parameters:

@@ -11,10 +11,10 @@ from aioresponses import aioresponses
 
 from sapimclient import client, const, exceptions
 from sapimclient.model.legacy import (
+    LegacyPipelineJob,
     LegacyReference,
     LegacyResource,
     Pipeline,
-    PipelineJob,
 )
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
@@ -1080,7 +1080,7 @@ async def test_legacytenant_run_pipeline(
 ) -> None:
     """Test tenant run pipeline happy flow."""
 
-    class MockPipeline(PipelineJob):
+    class MockPipeline(LegacyPipelineJob):
         """Mock pipeline job."""
 
         attr_endpoint: ClassVar[str] = '/v2/pipelines'
@@ -1120,7 +1120,7 @@ async def test_legacytenant_run_pipeline_error(
 ) -> None:
     """Test tenant run pipeline error."""
 
-    class MockPipeline(PipelineJob):
+    class MockPipeline(LegacyPipelineJob):
         """Mock pipeline job."""
 
         attr_endpoint: ClassVar[str] = '/v2/pipelines'
