@@ -1,5 +1,5 @@
 {
-  "name": "Python Package Devcontainer",
+  "name": "SAP IM Client Devcontainer",
   "build": {
     "context": "..",
     "dockerfile": "./Dockerfile"
@@ -17,7 +17,9 @@
         "GitHub.vscode-pull-request-github",
         "eamodio.gitlens",
         "tamasfe.even-better-toml",
-        "github.vscode-github-actions"
+        "github.vscode-github-actions",
+        "saoudrizwan.claude-dev",
+        "continue.continue"
       ],
       "settings": {
         "[python]": {
@@ -40,7 +42,10 @@
       }
     }
   },
-  "runArgs": ["--network=llm-net", "--name=sapimclient-devcontainer"],
+  "runArgs": ["--name=sapimclient-devcontainer"],
+  "containerEnv": {
+    "OLLAMA_HOST": "http://host.docker.internal:11434"
+  },
   "postCreateCommand": "git config --global --add safe.directory /workspaces/sapimclient && pre-commit install --install-hooks",
   "postStartCommand": "pip install -e ."
 }
