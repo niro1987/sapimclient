@@ -25,5 +25,6 @@
       "source.fixAll": "always",
       "source.organizeImports": "always"
     }
-  }
+  },
+  "python.analysis.typeCheckingMode": "standard"
 }
